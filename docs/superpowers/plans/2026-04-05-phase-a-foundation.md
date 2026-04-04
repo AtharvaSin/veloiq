@@ -937,3 +937,1110 @@ git log --oneline | head -8
 Expected: 8 commits total (1 initial docs + 4 Part 1 + 3 Part 2).
 
 ---
+
+## Part 3 — SQLAlchemy Models & Alembic Migration (Tasks 8-14)
+
+### Task 8: Customer and Standard models
+
+**Files:**
+- Create: `backend/app/models/customer.py`, `backend/app/models/standard.py`
+- Create: `backend/tests/models/test_customer_model.py`, `backend/tests/models/test_standard_model.py`
+
+- [ ] **Step 1: Write failing test for Customer model**
+
+Create `backend/tests/models/test_customer_model.py`:
+
+```python
+from sqlalchemy.orm import Session
+
+from app.models.customer import Customer
+
+
+def test_customer_can_be_created_with_required_fields(db_session: Session) -> None:
+    customer = Customer(
+        customer_number="CUST-0001",
+        company_name="Huawei Technologies Co., Ltd.",
+        country="CN",
+        sales_area="Greater China",
+        language="ZH",
+        contact_email="li.wei@huawei.example.com",
+    )
+    db_session.add(customer)
+    db_session.flush()
+
+    assert customer.id is not None
+    assert customer.customer_number == "CUST-0001"
+    assert customer.country == "CN"
+    assert customer.created_at is not None
+
+
+def test_customer_number_must_be_unique(db_session: Session) -> None:
+    import pytest
+    from sqlalchemy.exc import IntegrityError
+
+    db_session.add(Customer(
+        customer_number="CUST-DUP", company_name="A", country="DE",
+        sales_area="EMEA", language="DE",
+    ))
+    db_session.flush()
+
+    db_session.add(Customer(
+        customer_number="CUST-DUP", company_name="B", country="DE",
+        sales_area="EMEA", language="DE",
+    ))
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+```bash
+cd backend
+pytest tests/models/test_customer_model.py -v --no-cov
+```
+
+Expected: FAIL with `ModuleNotFoundError: No module named 'app.models.customer'`
+
+- [ ] **Step 3: Create `backend/app/models/customer.py`**
+
+```python
+from datetime import datetime
+from uuid import UUID, uuid4
+
+from sqlalchemy import String, DateTime, func
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
+
+
+class Customer(Base):
+    __tablename__ = "customers"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    customer_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    company_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    country: Mapped[str] = mapped_column(String(2), nullable=False, index=True)
+    sales_area: Mapped[str] = mapped_column(String(100), nullable=False)
+    language: Mapped[str] = mapped_column(String(2), nullable=False)
+    contact_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+```bash
+cd backend
+pytest tests/models/test_customer_model.py -v --no-cov
+```
+
+Expected: PASS (2 tests)
+
+- [ ] **Step 5: Write failing test for Standard model**
+
+Create `backend/tests/models/test_standard_model.py`:
+
+```python
+from datetime import datetime, timezone
+
+from sqlalchemy.orm import Session
+
+from app.models.standard import Standard
+
+
+def test_standard_can_be_created_with_required_fields(db_session: Session) -> None:
+    standard = Standard(
+        ac_code="ISO 9001:2015",
+        title="Quality management systems — Requirements",
+        status="60",
+        normalized_code="iso 9001:2015",
+        base_number="9001",
+        version_year=2015,
+        source_payload={"raw": "test"},
+        ingested_at=datetime.now(timezone.utc),
+    )
+    db_session.add(standard)
+    db_session.flush()
+
+    assert standard.id is not None
+    assert standard.ac_code == "ISO 9001:2015"
+    assert standard.status == "60"
+    assert standard.source_payload == {"raw": "test"}
+
+
+def test_standard_ac_code_must_be_unique(db_session: Session) -> None:
+    import pytest
+    from sqlalchemy.exc import IntegrityError
+
+    common = dict(
+        ac_code="ISO 9999:2025", title="T", status="60",
+        normalized_code="iso 9999:2025", base_number="9999",
+        source_payload={}, ingested_at=datetime.now(timezone.utc),
+    )
+    db_session.add(Standard(**common))
+    db_session.flush()
+    db_session.add(Standard(**common))
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+```
+
+- [ ] **Step 6: Run test to verify it fails, then create Standard model**
+
+Run test (should fail):
+
+```bash
+pytest tests/models/test_standard_model.py -v --no-cov
+```
+
+Create `backend/app/models/standard.py`:
+
+```python
+from datetime import datetime
+from uuid import UUID, uuid4
+
+from sqlalchemy import String, Text, Integer, DateTime, func
+from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
+
+
+class Standard(Base):
+    __tablename__ = "standards"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    ac_code: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
+    replaced_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    normalized_code: Mapped[str] = mapped_column(String(100), nullable=False)
+    base_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    version_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    committee: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    ics_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    source_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+```
+
+- [ ] **Step 7: Run both model tests**
+
+```bash
+pytest tests/models/ -v --no-cov
+```
+
+Expected: PASS (4 tests)
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add backend/app/models/customer.py backend/app/models/standard.py backend/tests/models/
+git commit -m "feat(models): add Customer and Standard SQLAlchemy models"
+```
+
+---
+
+### Task 9: Certificate and CertStandardLink models
+
+**Files:**
+- Create: `backend/app/models/certificate.py`, `backend/app/models/cert_standard_link.py`
+- Create: test files for each
+
+- [ ] **Step 1: Write failing test for Certificate model**
+
+Create `backend/tests/models/test_certificate_model.py`:
+
+```python
+from datetime import date
+
+from sqlalchemy.orm import Session
+
+from app.models.certificate import Certificate
+from app.models.customer import Customer
+
+
+def test_certificate_links_to_customer(db_session: Session) -> None:
+    customer = Customer(
+        customer_number="CUST-9001", company_name="TestCo", country="DE",
+        sales_area="EMEA", language="DE",
+    )
+    db_session.add(customer)
+    db_session.flush()
+
+    cert = Certificate(
+        certificate_number="TC-44210",
+        customer_id=customer.id,
+        product_description="Industrial Control Panel",
+        status="active",
+        issue_date=date(2024, 3, 15),
+        expiry_date=date(2027, 3, 14),
+    )
+    db_session.add(cert)
+    db_session.flush()
+
+    assert cert.id is not None
+    assert cert.customer_id == customer.id
+    assert cert.status == "active"
+
+
+def test_certificate_status_check_constraint(db_session: Session) -> None:
+    import pytest
+    from sqlalchemy.exc import IntegrityError
+
+    customer = Customer(
+        customer_number="CUST-9002", company_name="TestCo2", country="DE",
+        sales_area="EMEA", language="DE",
+    )
+    db_session.add(customer)
+    db_session.flush()
+
+    db_session.add(Certificate(
+        certificate_number="TC-BAD",
+        customer_id=customer.id,
+        product_description="Test",
+        status="invalid_status",
+        issue_date=date(2024, 1, 1),
+        expiry_date=date(2027, 1, 1),
+    ))
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+```
+
+- [ ] **Step 2: Create `backend/app/models/certificate.py`**
+
+```python
+from datetime import date, datetime
+from uuid import UUID, uuid4
+
+from sqlalchemy import String, Text, Date, DateTime, ForeignKey, CheckConstraint, func
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
+
+
+class Certificate(Base):
+    __tablename__ = "certificates"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('active','expiring','expired','suspended')",
+            name="ck_certificates_status",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    certificate_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    customer_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("customers.id"), nullable=False, index=True
+    )
+    product_description: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    issue_date: Mapped[date] = mapped_column(Date, nullable=False)
+    expiry_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+```
+
+- [ ] **Step 3: Run cert test, verify pass**
+
+```bash
+pytest tests/models/test_certificate_model.py -v --no-cov
+```
+
+Expected: PASS (2 tests)
+
+- [ ] **Step 4: Write failing test for CertStandardLink**
+
+Create `backend/tests/models/test_cert_standard_link_model.py`:
+
+```python
+from datetime import date, datetime, timezone
+
+from sqlalchemy.orm import Session
+
+from app.models.cert_standard_link import CertStandardLink
+from app.models.certificate import Certificate
+from app.models.customer import Customer
+
+
+def test_link_captures_messy_sap_format(db_session: Session) -> None:
+    customer = Customer(
+        customer_number="CUST-L1", company_name="LinkTest", country="DE",
+        sales_area="EMEA", language="DE",
+    )
+    db_session.add(customer)
+    db_session.flush()
+
+    cert = Certificate(
+        certificate_number="TC-LINK-1", customer_id=customer.id,
+        product_description="Test", status="active",
+        issue_date=date(2024, 1, 1), expiry_date=date(2027, 1, 1),
+    )
+    db_session.add(cert)
+    db_session.flush()
+
+    link = CertStandardLink(
+        certificate_id=cert.id,
+        standard_ref="DIN EN ISO 14001:2015-11",
+        normalized_ref="14001:2015",
+        base_number="14001",
+        linked_at=datetime.now(timezone.utc),
+    )
+    db_session.add(link)
+    db_session.flush()
+
+    assert link.id is not None
+    assert link.standard_ref == "DIN EN ISO 14001:2015-11"
+    assert link.base_number == "14001"
+```
+
+- [ ] **Step 5: Create `backend/app/models/cert_standard_link.py`**
+
+```python
+from datetime import datetime
+from uuid import UUID, uuid4
+
+from sqlalchemy import String, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
+
+
+class CertStandardLink(Base):
+    __tablename__ = "cert_standard_links"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    certificate_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("certificates.id"), nullable=False, index=True
+    )
+    standard_ref: Mapped[str] = mapped_column(String(200), nullable=False)
+    normalized_ref: Mapped[str] = mapped_column(String(200), nullable=False)
+    base_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+```
+
+- [ ] **Step 6: Run all model tests**
+
+```bash
+pytest tests/models/ -v --no-cov
+```
+
+Expected: PASS (7 tests: 2 customer + 2 standard + 2 certificate + 1 link)
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add backend/app/models/certificate.py backend/app/models/cert_standard_link.py backend/tests/models/test_certificate_model.py backend/tests/models/test_cert_standard_link_model.py
+git commit -m "feat(models): add Certificate and CertStandardLink models with FK to customers"
+```
+
+---
+
+### Task 10: MatchResult model
+
+**Files:**
+- Create: `backend/app/models/match_result.py`
+- Create: `backend/tests/models/test_match_result_model.py`
+
+- [ ] **Step 1: Write failing test**
+
+```python
+# backend/tests/models/test_match_result_model.py
+from datetime import date, datetime, timezone
+from decimal import Decimal
+
+import pytest
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.models.match_result import MatchResult
+from app.models.standard import Standard
+from app.models.cert_standard_link import CertStandardLink
+from app.models.certificate import Certificate
+from app.models.customer import Customer
+
+
+def _setup_parents(db_session: Session) -> tuple[Standard, CertStandardLink]:
+    customer = Customer(
+        customer_number="CUST-M1", company_name="MatchTest", country="DE",
+        sales_area="EMEA", language="DE",
+    )
+    cert = Certificate(
+        certificate_number="TC-M1", customer=None, customer_id=None,
+        product_description="Test", status="active",
+        issue_date=date(2024, 1, 1), expiry_date=date(2027, 1, 1),
+    )
+    db_session.add(customer)
+    db_session.flush()
+    cert.customer_id = customer.id
+    db_session.add(cert)
+    db_session.flush()
+
+    standard = Standard(
+        ac_code="ISO 14001:2015", title="EMS", status="60",
+        normalized_code="iso 14001:2015", base_number="14001",
+        source_payload={}, ingested_at=datetime.now(timezone.utc),
+    )
+    link = CertStandardLink(
+        certificate_id=cert.id,
+        standard_ref="DIN EN ISO 14001:2015-11",
+        normalized_ref="14001:2015",
+        base_number="14001",
+        linked_at=datetime.now(timezone.utc),
+    )
+    db_session.add_all([standard, link])
+    db_session.flush()
+    return standard, link
+
+
+def test_match_result_can_be_created(db_session: Session) -> None:
+    standard, link = _setup_parents(db_session)
+    mr = MatchResult(
+        natos_standard_id=standard.id,
+        cert_link_id=link.id,
+        similarity_score=Decimal("0.840"),
+        levenshtein_score=Decimal("0.820"),
+        jaro_winkler_score=Decimal("0.890"),
+        token_set_score=Decimal("0.910"),
+        confidence_tier="expert_review",
+        status="pending",
+        matched_at=datetime.now(timezone.utc),
+    )
+    db_session.add(mr)
+    db_session.flush()
+
+    assert mr.id is not None
+    assert mr.similarity_score == Decimal("0.840")
+    assert mr.confidence_tier == "expert_review"
+
+
+def test_match_result_confidence_tier_constraint(db_session: Session) -> None:
+    standard, link = _setup_parents(db_session)
+    db_session.add(MatchResult(
+        natos_standard_id=standard.id, cert_link_id=link.id,
+        similarity_score=Decimal("0.5"), confidence_tier="invalid",
+        status="pending", matched_at=datetime.now(timezone.utc),
+    ))
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+```
+
+- [ ] **Step 2: Create `backend/app/models/match_result.py`**
+
+```python
+from datetime import datetime
+from decimal import Decimal
+from uuid import UUID, uuid4
+
+from sqlalchemy import String, Numeric, DateTime, ForeignKey, CheckConstraint, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
+
+
+class MatchResult(Base):
+    __tablename__ = "match_results"
+    __table_args__ = (
+        CheckConstraint(
+            "confidence_tier IN ('auto_match','expert_review','manual_triage')",
+            name="ck_match_results_tier",
+        ),
+        UniqueConstraint("natos_standard_id", "cert_link_id", name="uq_match_results_pair"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    natos_standard_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("standards.id"), nullable=False
+    )
+    cert_link_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cert_standard_links.id"), nullable=False
+    )
+    similarity_score: Mapped[Decimal] = mapped_column(Numeric(4, 3), nullable=False)
+    levenshtein_score: Mapped[Decimal | None] = mapped_column(Numeric(4, 3), nullable=True)
+    jaro_winkler_score: Mapped[Decimal | None] = mapped_column(Numeric(4, 3), nullable=True)
+    token_set_score: Mapped[Decimal | None] = mapped_column(Numeric(4, 3), nullable=True)
+    confidence_tier: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending", index=True)
+    matched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+```
+
+- [ ] **Step 3: Run tests, verify pass**
+
+```bash
+pytest tests/models/test_match_result_model.py -v --no-cov
+```
+
+Expected: PASS (2 tests)
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add backend/app/models/match_result.py backend/tests/models/test_match_result_model.py
+git commit -m "feat(models): add MatchResult model with confidence tier check constraint"
+```
+
+---
+
+### Task 11: Assessment and Notification models
+
+**Files:**
+- Create: `backend/app/models/assessment.py`, `backend/app/models/notification.py`
+- Create: test files
+
+- [ ] **Step 1: Create `backend/app/models/assessment.py`**
+
+```python
+from datetime import datetime
+from uuid import UUID, uuid4
+
+from sqlalchemy import String, Text, DateTime, ForeignKey, CheckConstraint
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
+
+
+class Assessment(Base):
+    __tablename__ = "assessments"
+    __table_args__ = (
+        CheckConstraint(
+            "impact_classification IN ('no_change','administrative','minor_technical','major_technical','safety_critical')",
+            name="ck_assessments_impact",
+        ),
+        CheckConstraint(
+            "action_required IN ('reconfirm','retest','suspend','withdraw')",
+            name="ck_assessments_action",
+        ),
+        CheckConstraint(
+            "decision IN ('approved','rejected','escalated')",
+            name="ck_assessments_decision",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    match_result_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("match_results.id"), nullable=False, index=True
+    )
+    assessor_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    impact_classification: Mapped[str] = mapped_column(String(30), nullable=False)
+    action_required: Mapped[str] = mapped_column(String(30), nullable=False)
+    reason_code: Mapped[str] = mapped_column(String(100), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decision: Mapped[str] = mapped_column(String(20), nullable=False)
+    decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    signature_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+```
+
+- [ ] **Step 2: Create `backend/app/models/notification.py`**
+
+```python
+from datetime import datetime
+from uuid import UUID, uuid4
+
+from sqlalchemy import String, Text, DateTime, ForeignKey, CheckConstraint
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued','sent','delivered','opened','clicked','bounced','breached')",
+            name="ck_notifications_status",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    assessment_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("assessments.id"), nullable=False
+    )
+    customer_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("customers.id"), nullable=False, index=True
+    )
+    template_language: Mapped[str] = mapped_column(String(2), nullable=False)
+    subject: Mapped[str] = mapped_column(Text, nullable=False)
+    body_html: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    clicked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sla_deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+```
+
+- [ ] **Step 3: Write smoke tests for both**
+
+Create `backend/tests/models/test_assessment_notification_models.py`:
+
+```python
+from datetime import date, datetime, timezone, timedelta
+from decimal import Decimal
+
+from sqlalchemy.orm import Session
+
+from app.models.assessment import Assessment
+from app.models.notification import Notification
+from app.models.match_result import MatchResult
+from app.models.standard import Standard
+from app.models.cert_standard_link import CertStandardLink
+from app.models.certificate import Certificate
+from app.models.customer import Customer
+
+
+def test_assessment_and_notification_can_be_created(db_session: Session) -> None:
+    # Build the full chain
+    customer = Customer(
+        customer_number="CUST-A1", company_name="AssessTest", country="DE",
+        sales_area="EMEA", language="DE",
+    )
+    db_session.add(customer)
+    db_session.flush()
+
+    cert = Certificate(
+        certificate_number="TC-A1", customer_id=customer.id,
+        product_description="Test", status="active",
+        issue_date=date(2024, 1, 1), expiry_date=date(2027, 1, 1),
+    )
+    standard = Standard(
+        ac_code="ISO 9001:2015", title="QMS", status="60",
+        normalized_code="iso 9001:2015", base_number="9001",
+        source_payload={}, ingested_at=datetime.now(timezone.utc),
+    )
+    db_session.add_all([cert, standard])
+    db_session.flush()
+
+    link = CertStandardLink(
+        certificate_id=cert.id, standard_ref="DIN EN ISO 9001:2015",
+        normalized_ref="9001:2015", base_number="9001",
+        linked_at=datetime.now(timezone.utc),
+    )
+    db_session.add(link)
+    db_session.flush()
+
+    mr = MatchResult(
+        natos_standard_id=standard.id, cert_link_id=link.id,
+        similarity_score=Decimal("0.95"), confidence_tier="auto_match",
+        status="reviewed", matched_at=datetime.now(timezone.utc),
+    )
+    db_session.add(mr)
+    db_session.flush()
+
+    assessment = Assessment(
+        match_result_id=mr.id, assessor_id="Dr. M. Weber",
+        impact_classification="minor_technical", action_required="reconfirm",
+        reason_code="Administrative amendment only", decision="approved",
+        decided_at=datetime.now(timezone.utc), signature_hash="abc123",
+    )
+    db_session.add(assessment)
+    db_session.flush()
+
+    notif = Notification(
+        assessment_id=assessment.id, customer_id=customer.id,
+        template_language="DE", subject="Standard update notification",
+        body_html="<html></html>", status="delivered",
+        sla_deadline=datetime.now(timezone.utc) + timedelta(days=14),
+    )
+    db_session.add(notif)
+    db_session.flush()
+
+    assert assessment.id is not None
+    assert notif.id is not None
+    assert notif.assessment_id == assessment.id
+```
+
+- [ ] **Step 4: Run test, verify pass**
+
+```bash
+pytest tests/models/test_assessment_notification_models.py -v --no-cov
+```
+
+Expected: PASS (1 test)
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add backend/app/models/assessment.py backend/app/models/notification.py backend/tests/models/test_assessment_notification_models.py
+git commit -m "feat(models): add Assessment and Notification models with enum check constraints"
+```
+
+---
+
+### Task 12: SalesEscalation and AuditLog models
+
+**Files:**
+- Create: `backend/app/models/sales_escalation.py`, `backend/app/models/audit_log.py`
+
+- [ ] **Step 1: Create `backend/app/models/sales_escalation.py`**
+
+```python
+from datetime import datetime
+from decimal import Decimal
+from uuid import UUID, uuid4
+
+from sqlalchemy import String, Numeric, DateTime, ForeignKey, CheckConstraint
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
+
+
+class SalesEscalation(Base):
+    __tablename__ = "sales_escalations"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('open','contacted','resolved')",
+            name="ck_escalations_status",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    notification_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("notifications.id"), nullable=False
+    )
+    customer_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("customers.id"), nullable=False, index=True
+    )
+    escalation_reason: Mapped[str] = mapped_column(String(50), nullable=False)
+    opportunity_value: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    assigned_to: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+```
+
+- [ ] **Step 2: Create `backend/app/models/audit_log.py`**
+
+```python
+from datetime import datetime
+from uuid import UUID, uuid4
+
+from sqlalchemy import String, DateTime, func, Index
+from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_log"
+    __table_args__ = (
+        Index("ix_audit_log_entity", "entity_type", "entity_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    entity_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    actor: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    details: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
+    )
+```
+
+- [ ] **Step 3: Write smoke test for both**
+
+Create `backend/tests/models/test_escalation_audit_models.py`:
+
+```python
+from datetime import datetime, timezone
+from decimal import Decimal
+from uuid import uuid4
+
+from sqlalchemy.orm import Session
+
+from app.models.sales_escalation import SalesEscalation
+from app.models.audit_log import AuditLog
+from app.models.customer import Customer
+
+
+def test_audit_log_captures_structured_details(db_session: Session) -> None:
+    entry = AuditLog(
+        entity_type="standard",
+        entity_id=uuid4(),
+        action="created",
+        actor="Dr. M. Weber",
+        details={"ac_code": "ISO 9001:2015", "status": "60"},
+        ip_address="192.168.1.100",
+    )
+    db_session.add(entry)
+    db_session.flush()
+
+    assert entry.id is not None
+    assert entry.details["ac_code"] == "ISO 9001:2015"
+    assert entry.created_at is not None
+```
+
+- [ ] **Step 4: Run test, verify pass**
+
+```bash
+pytest tests/models/test_escalation_audit_models.py -v --no-cov
+```
+
+Expected: PASS (1 test)
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add backend/app/models/sales_escalation.py backend/app/models/audit_log.py backend/tests/models/test_escalation_audit_models.py
+git commit -m "feat(models): add SalesEscalation and AuditLog (append-only) models"
+```
+
+---
+
+### Task 13: Model registry (__init__.py exports)
+
+**Files:**
+- Modify: `backend/app/models/__init__.py`
+
+- [ ] **Step 1: Update `backend/app/models/__init__.py`** to export all models
+
+```python
+"""SQLAlchemy ORM models. Importing this module registers all tables with Base."""
+
+from app.database import Base
+from app.models.assessment import Assessment
+from app.models.audit_log import AuditLog
+from app.models.cert_standard_link import CertStandardLink
+from app.models.certificate import Certificate
+from app.models.customer import Customer
+from app.models.match_result import MatchResult
+from app.models.notification import Notification
+from app.models.sales_escalation import SalesEscalation
+from app.models.standard import Standard
+
+__all__ = [
+    "Base",
+    "Customer",
+    "Standard",
+    "Certificate",
+    "CertStandardLink",
+    "MatchResult",
+    "Assessment",
+    "Notification",
+    "SalesEscalation",
+    "AuditLog",
+]
+```
+
+- [ ] **Step 2: Verify all models import cleanly**
+
+```bash
+cd backend
+python -c "from app.models import Base, Customer, Standard, Certificate, CertStandardLink, MatchResult, Assessment, Notification, SalesEscalation, AuditLog; print('All 9 models registered:', len(Base.metadata.tables))"
+```
+
+Expected output:
+```
+All 9 models registered: 9
+```
+
+- [ ] **Step 3: Run full test suite to verify no regressions**
+
+```bash
+pytest tests/ -v --no-cov
+```
+
+Expected: all tests pass (original 10 + new model tests).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add backend/app/models/__init__.py
+git commit -m "feat(models): export all 9 models via models/__init__.py"
+```
+
+---
+
+### Task 14: Initial Alembic migration with REVOKE on audit_log
+
+**Files:**
+- Create: `backend/alembic/env.py`
+- Create: `backend/alembic.ini`
+- Create: `backend/alembic/versions/001_initial_schema.py`
+
+- [ ] **Step 1: Initialize Alembic**
+
+```bash
+cd backend
+alembic init alembic
+```
+
+This creates `alembic/env.py`, `alembic.ini`, and scaffolding.
+
+- [ ] **Step 2: Edit `backend/alembic.ini`** to use the env var for DB URL
+
+Replace the `sqlalchemy.url = ...` line with:
+
+```ini
+sqlalchemy.url =
+```
+
+(Leave empty — env.py will set it from settings.)
+
+- [ ] **Step 3: Edit `backend/alembic/env.py`** to wire up settings and Base
+
+Replace the generated `env.py` with:
+
+```python
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy import engine_from_config, pool
+
+from app.config import settings
+from app.models import Base  # noqa: F401 - registers all models with Base.metadata
+
+config = context.config
+config.set_main_option("sqlalchemy.url", settings.database_url)
+
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+target_metadata = Base.metadata
+
+
+def run_migrations_offline() -> None:
+    url = config.get_main_option("sqlalchemy.url")
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online() -> None:
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+    with connectable.connect() as connection:
+        context.configure(connection=connection, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
+```
+
+- [ ] **Step 4: Generate initial migration**
+
+```bash
+cd backend
+alembic revision --autogenerate -m "initial schema"
+```
+
+Expected: A new file created in `alembic/versions/` like `xxxxxxxxxxxx_initial_schema.py`.
+
+- [ ] **Step 5: Rename migration to `001_initial_schema.py`**
+
+Rename the generated file to `001_initial_schema.py` (drop the hash prefix) for clarity.
+
+Update the `revision = "..."` line inside the file to `revision = "001"`.
+
+- [ ] **Step 6: Append REVOKE statement to migration**
+
+Add to the end of the `upgrade()` function in `001_initial_schema.py`:
+
+```python
+    # Make audit_log append-only: revoke UPDATE and DELETE from the application user
+    op.execute("REVOKE UPDATE, DELETE ON audit_log FROM veloiq;")
+```
+
+And to the start of `downgrade()`:
+
+```python
+    op.execute("GRANT UPDATE, DELETE ON audit_log TO veloiq;")
+```
+
+- [ ] **Step 7: Apply migration to the main veloiq database**
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+Expected output (last line):
+```
+INFO  [alembic.runtime.migration] Running upgrade  -> 001, initial schema
+```
+
+- [ ] **Step 8: Verify all 9 tables exist**
+
+```bash
+docker compose exec postgres psql -U veloiq -d veloiq -c "\dt"
+```
+
+Expected: 9 tables listed (customers, standards, certificates, cert_standard_links, match_results, assessments, notifications, sales_escalations, audit_log) + alembic_version.
+
+- [ ] **Step 9: Verify REVOKE was applied**
+
+```bash
+docker compose exec postgres psql -U veloiq -d veloiq -c "\dp audit_log"
+```
+
+Expected: the `veloiq` user should NOT have `w` (UPDATE) or `d` (DELETE) in the access privileges.
+
+- [ ] **Step 10: Verify migration is reversible**
+
+```bash
+cd backend
+alembic downgrade base
+alembic upgrade head
+```
+
+Both commands should succeed with no errors.
+
+- [ ] **Step 11: Commit**
+
+```bash
+git add backend/alembic backend/alembic.ini
+git commit -m "feat(db): initial Alembic migration with REVOKE UPDATE,DELETE on audit_log"
+```
+
+---
+
+**End of Part 3 — SQLAlchemy models and Alembic migration complete.**
+
+**Part 3 verification:**
+
+```bash
+cd backend
+pytest tests/ -v --no-cov
+```
+
+Expected: all tests pass (10 + model tests).
+
+```bash
+docker compose exec postgres psql -U veloiq -d veloiq -c "\dt"
+```
+
+Expected: 9 VeloIQ tables + alembic_version.
+
+---
