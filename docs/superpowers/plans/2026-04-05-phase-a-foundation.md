@@ -16,112 +16,15 @@
 
 ## Part 1 — Scaffolding (Tasks 1-4)
 
-### Task 1: Initialize git repository and directory structure
+### Task 1: Create backend directory structure
 
 **Files:**
-- Create: `.gitignore` (repo root)
-- Create: `README.md` (repo root, brief)
 - Create: `backend/` directory tree
 - Create: `backend/.gitignore`
 
-- [ ] **Step 1: Initialize git repository**
+> **Note:** Git repo already initialized, linked to https://github.com/AtharvaSin/veloiq, and docs already pushed. Root `.gitignore` and `README.md` already exist from initial commit. This task only adds the backend scaffolding.
 
-Run from the veloIQ directory root:
-
-```bash
-git init
-git branch -M main
-```
-
-Expected output:
-```
-Initialized empty Git repository in .../veloIQ/.git/
-```
-
-- [ ] **Step 2: Create root `.gitignore`**
-
-Create `.gitignore` at the repo root:
-
-```gitignore
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-*.egg-info/
-.pytest_cache/
-.coverage
-htmlcov/
-.mypy_cache/
-.ruff_cache/
-
-# Virtual environments
-.venv/
-venv/
-env/
-
-# Environment
-.env
-.env.local
-*.env
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Docker
-docker-compose.override.yml
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Node (frontend — future phases)
-node_modules/
-dist/
-build/
-```
-
-- [ ] **Step 3: Create `README.md`**
-
-Create `README.md` at repo root:
-
-```markdown
-# VeloIQ — Standards Automation Platform
-
-**Client:** TÜV Rheinland  **Vendor:** Zealogics Inc.
-
-A compliance automation platform for product certification standards management.
-POC demo with synthetic data — see `docs/POC_APPROACH.md` for the full build plan.
-
-## Quick Start
-
-```bash
-# Start PostgreSQL + backend
-docker compose up -d
-
-# Apply migrations and seed demo data
-cd backend && make migrate && make demo-reset
-
-# Run tests
-make test
-
-# Access API docs
-open http://localhost:8000/docs
-```
-
-## Documentation
-
-- `docs/POC_APPROACH.md` — 5-phase build plan
-- `docs/UI_UX_DESIGN.md` — Frontend design spec
-- `docs/PHASE_A_FOUNDATION_DESIGN.md` — Phase A detailed spec
-- `docs/superpowers/` — Superpowers-driven specs and plans
-```
-
-- [ ] **Step 4: Create backend directory tree**
+- [ ] **Step 1: Create backend directory tree**
 
 Run from the veloIQ directory root:
 
@@ -140,7 +43,7 @@ mkdir -p backend/tests/routers
 mkdir -p backend/data_seeder
 ```
 
-- [ ] **Step 5: Create placeholder `__init__.py` files**
+- [ ] **Step 2: Create placeholder `__init__.py` files**
 
 Create empty `__init__.py` in each Python package:
 
@@ -168,7 +71,7 @@ touch backend/app/stubs/.gitkeep
 touch backend/alembic/versions/.gitkeep
 ```
 
-- [ ] **Step 6: Create `backend/.gitignore`**
+- [ ] **Step 3: Create `backend/.gitignore`**
 
 Create `backend/.gitignore`:
 
@@ -186,7 +89,7 @@ dist/
 *.egg-info/
 ```
 
-- [ ] **Step 7: Verify directory structure**
+- [ ] **Step 4: Verify directory structure**
 
 Run:
 
@@ -214,11 +117,11 @@ backend/tests/schemas
 backend/tests/services
 ```
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add .gitignore README.md backend/
-git commit -m "chore: initialize veloIQ repo with backend scaffolding"
+git add backend/
+git commit -m "chore: add backend directory scaffolding"
 ```
 
 ---
@@ -664,6 +567,373 @@ Expected: 7 tests pass (2 config + 5 exceptions).
 git log --oneline
 ```
 
-Expected: 4 commits (repo init + scaffolding, dependencies, config, exceptions).
+Expected: 5 commits total (initial docs commit + backend scaffolding, dependencies, config, exceptions).
+
+---
+
+## Part 2 — Database Infrastructure (Tasks 5-7)
+
+Goal: Stand up PostgreSQL via Docker Compose, initialize `veloiq` and `veloiq_test` databases, and create pytest fixtures for transactional rollback isolation. Enables TDD for all subsequent model/service/router tasks.
+
+### Task 5: Docker Compose with PostgreSQL
+
+**Files:**
+- Create: `docker-compose.yml` (repo root)
+- Create: `.env` (repo root, gitignored)
+
+- [ ] **Step 1: Create `docker-compose.yml` at repo root**
+
+```yaml
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: veloiq-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-veloiq}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-veloiq_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-veloiq}
+    ports:
+      - "5432:5432"
+    volumes:
+      - veloiq_postgres_data:/var/lib/postgresql/data
+      - ./backend/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-veloiq} -d ${POSTGRES_DB:-veloiq}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  veloiq_postgres_data:
+```
+
+- [ ] **Step 2: Create root `.env` (for Docker Compose only)**
+
+Create `.env` at repo root:
+
+```bash
+POSTGRES_USER=veloiq
+POSTGRES_PASSWORD=veloiq_dev_password
+POSTGRES_DB=veloiq
+```
+
+Verify it's gitignored:
+
+```bash
+git check-ignore -v .env
+```
+
+Expected output: `.gitignore:11:*.env      .env`
+
+- [ ] **Step 3: Commit `docker-compose.yml`**
+
+```bash
+git add docker-compose.yml
+git commit -m "feat(infra): add Docker Compose with PostgreSQL 16"
+```
+
+- [ ] **Step 4: Start PostgreSQL container**
+
+```bash
+docker compose up -d postgres
+```
+
+Expected output (last lines):
+```
+ ✔ Container veloiq-postgres  Started
+```
+
+- [ ] **Step 5: Verify PostgreSQL is ready**
+
+Wait ~10 seconds, then:
+
+```bash
+docker compose exec postgres pg_isready -U veloiq -d veloiq
+```
+
+Expected output:
+```
+/var/run/postgresql:5432 - accepting connections
+```
+
+---
+
+### Task 6: PostgreSQL init script for veloiq_test database
+
+**Files:**
+- Create: `backend/init-db.sql`
+
+- [ ] **Step 1: Create `backend/init-db.sql`**
+
+```sql
+-- Runs automatically on first container start via docker-entrypoint-initdb.d
+-- Creates the test database alongside the main veloiq database (already created by POSTGRES_DB env var)
+
+CREATE DATABASE veloiq_test;
+
+-- Grant privileges to the veloiq user on both databases
+GRANT ALL PRIVILEGES ON DATABASE veloiq TO veloiq;
+GRANT ALL PRIVILEGES ON DATABASE veloiq_test TO veloiq;
+
+-- Enable pgcrypto for gen_random_uuid() on both databases
+\c veloiq
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+\c veloiq_test
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+```
+
+- [ ] **Step 2: Recreate container so init script runs**
+
+The init script only runs on fresh database initialization. Tear down and recreate:
+
+```bash
+docker compose down -v
+docker compose up -d postgres
+```
+
+Wait ~10 seconds for healthcheck:
+
+```bash
+docker compose ps
+```
+
+Expected: `veloiq-postgres` status shows `(healthy)`.
+
+- [ ] **Step 3: Verify both databases exist**
+
+```bash
+docker compose exec postgres psql -U veloiq -d veloiq -c "\l veloiq*"
+```
+
+Expected output (among other rows):
+```
+    Name     | Owner  | ...
+-------------+--------+-----
+ veloiq      | veloiq |
+ veloiq_test | veloiq |
+```
+
+- [ ] **Step 4: Verify pgcrypto extension on both databases**
+
+```bash
+docker compose exec postgres psql -U veloiq -d veloiq -c "SELECT extname FROM pg_extension WHERE extname='pgcrypto';"
+docker compose exec postgres psql -U veloiq -d veloiq_test -c "SELECT extname FROM pg_extension WHERE extname='pgcrypto';"
+```
+
+Both should return:
+```
+ extname
+----------
+ pgcrypto
+(1 row)
+```
+
+- [ ] **Step 5: Create `backend/.env` from example**
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+- [ ] **Step 6: Verify Python can connect to PostgreSQL**
+
+```bash
+cd backend
+source .venv/Scripts/activate
+python -c "
+from sqlalchemy import create_engine, text
+engine = create_engine('postgresql://veloiq:veloiq_dev_password@localhost:5432/veloiq_test')
+with engine.connect() as conn:
+    result = conn.execute(text('SELECT 1 AS ok'))
+    print('Connection OK:', result.scalar())
+"
+```
+
+Expected output:
+```
+Connection OK: 1
+```
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add backend/init-db.sql
+git commit -m "feat(infra): add DB init script creating veloiq and veloiq_test databases with pgcrypto"
+```
+
+---
+
+### Task 7: Test conftest.py with transactional rollback fixtures
+
+**Files:**
+- Create: `backend/tests/conftest.py`
+- Create: `backend/tests/test_conftest_smoke.py`
+
+- [ ] **Step 1: Write a smoke test that exercises the fixtures**
+
+Create `backend/tests/test_conftest_smoke.py`:
+
+```python
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+
+def test_db_session_fixture_yields_working_session(db_session: Session) -> None:
+    """Smoke test: the db_session fixture yields a working SQLAlchemy session."""
+    result = db_session.execute(text("SELECT 1 AS ok"))
+    assert result.scalar() == 1
+
+
+def test_db_session_fixture_can_execute_transactional_writes(db_session: Session) -> None:
+    """First test: create a temporary table and insert a row within the transaction."""
+    db_session.execute(
+        text("CREATE TEMPORARY TABLE _isolation_test (val INT) ON COMMIT DROP")
+    )
+    db_session.execute(text("INSERT INTO _isolation_test (val) VALUES (42)"))
+    result = db_session.execute(text("SELECT val FROM _isolation_test"))
+    assert result.scalar() == 42
+
+
+def test_actor_fixture_returns_string(actor: str) -> None:
+    """The actor fixture yields a non-empty string."""
+    assert isinstance(actor, str)
+    assert len(actor) > 0
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+```bash
+cd backend
+source .venv/Scripts/activate
+pytest tests/test_conftest_smoke.py -v --no-cov
+```
+
+Expected: FAIL with errors about missing `db_session` and `actor` fixtures.
+
+- [ ] **Step 3: Create `backend/tests/conftest.py`**
+
+```python
+import os
+from collections.abc import Generator
+
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.database import Base
+
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql://veloiq:veloiq_dev_password@localhost:5432/veloiq_test",
+)
+
+
+@pytest.fixture(scope="session")
+def test_engine() -> Generator[Engine, None, None]:
+    """Session-scoped engine connected to the test database.
+
+    Creates all tables via Base.metadata.create_all at session start.
+    Drops all tables at session end.
+    """
+    engine = create_engine(TEST_DATABASE_URL, pool_pre_ping=True)
+    Base.metadata.drop_all(engine)  # Clean slate in case prior run left tables
+    Base.metadata.create_all(engine)
+    yield engine
+    Base.metadata.drop_all(engine)
+    engine.dispose()
+
+
+@pytest.fixture()
+def db_connection(test_engine: Engine) -> Generator[Connection, None, None]:
+    """Per-test connection wrapped in a transaction that rolls back."""
+    connection = test_engine.connect()
+    transaction = connection.begin()
+    yield connection
+    transaction.rollback()
+    connection.close()
+
+
+@pytest.fixture()
+def db_session(db_connection: Connection) -> Generator[Session, None, None]:
+    """Per-test SQLAlchemy session bound to the transactional connection.
+
+    All writes are rolled back when the test completes — complete isolation.
+    """
+    TestSession = sessionmaker(bind=db_connection, autocommit=False, autoflush=False)
+    session = TestSession()
+    yield session
+    session.close()
+
+
+@pytest.fixture()
+def actor() -> str:
+    """Default test actor identity for audited mutations."""
+    return "test-actor"
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+```bash
+cd backend
+pytest tests/test_conftest_smoke.py -v --no-cov
+```
+
+Expected: PASS (3 tests).
+
+- [ ] **Step 5: Verify isolation holds across runs (no state leaks)**
+
+Run twice to confirm clean isolation:
+
+```bash
+pytest tests/test_conftest_smoke.py -v --no-cov
+pytest tests/test_conftest_smoke.py -v --no-cov
+```
+
+Both runs: PASS (3 tests each).
+
+- [ ] **Step 6: Run full test suite to confirm no regressions**
+
+```bash
+pytest tests/ -v --no-cov
+```
+
+Expected: 10 tests pass (2 config + 5 exceptions + 3 conftest smoke).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add backend/tests/conftest.py backend/tests/test_conftest_smoke.py
+git commit -m "test(infra): add pytest fixtures for transactional rollback DB isolation"
+```
+
+---
+
+**End of Part 2 — Database infrastructure complete.**
+
+**Part 2 verification:**
+
+Run from repo root:
+
+```bash
+docker compose ps
+```
+
+Expected: `veloiq-postgres` status `(healthy)`.
+
+Run from `backend/`:
+
+```bash
+pytest tests/ -v --no-cov
+```
+
+Expected: 10 tests pass (2 config + 5 exceptions + 3 conftest smoke).
+
+```bash
+git log --oneline | head -8
+```
+
+Expected: 8 commits total (1 initial docs + 4 Part 1 + 3 Part 2).
 
 ---
