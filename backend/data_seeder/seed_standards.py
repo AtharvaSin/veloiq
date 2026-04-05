@@ -1,4 +1,5 @@
 """Seed 50 standards across ISO stages including 7 fuzzy-match anchor codes."""
+import uuid
 from datetime import UTC, datetime
 
 from faker import Faker
@@ -6,6 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.models.standard import Standard
 from data_seeder.providers import TICProvider
+
+# Namespace UUID for deterministic standard IDs derived from ac_code
+_STANDARDS_NAMESPACE = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 
 # (status, count) — totals to 50
 STATUS_DISTRIBUTION: list[tuple[str, int]] = [
@@ -41,9 +45,10 @@ def _parse_version_year(ac_code: str) -> int | None:
     return None
 
 
-def seed_standards(db: Session) -> list[Standard]:
+def seed_standards(db: Session, fake: Faker | None = None) -> list[Standard]:
     """Insert 50 deterministic standards. Includes 7 fuzzy-match anchor codes."""
-    fake = Faker()
+    if fake is None:
+        fake = Faker()
     fake.add_provider(TICProvider)
     now = datetime.now(UTC)
 
@@ -53,6 +58,7 @@ def seed_standards(db: Session) -> list[Standard]:
     # Pre-seed the 7 fuzzy anchors with status="60" (active, most common bucket)
     for ac_code, title, base_number, normalized_code, version_year in FUZZY_MATCH_ANCHORS:
         standard = Standard(
+            id=uuid.uuid5(_STANDARDS_NAMESPACE, ac_code),
             ac_code=ac_code,
             title=title,
             status="60",
@@ -84,6 +90,7 @@ def seed_standards(db: Session) -> list[Standard]:
             base_number = ac_code.split()[1].split(":")[0].split("-")[0]
             version_year = _parse_version_year(ac_code)
             standard = Standard(
+                id=uuid.uuid5(_STANDARDS_NAMESPACE, ac_code),
                 ac_code=ac_code,
                 title=fake.sentence(nb_words=8).rstrip("."),
                 status=status,

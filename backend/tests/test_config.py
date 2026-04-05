@@ -11,9 +11,11 @@ def test_settings_loads_from_env(monkeypatch):
     assert "http://localhost:5173" in settings.cors_origins
 
 
-def test_settings_has_defaults():
-    # _env_file=None isolates this test from backend/.env which now exists post-Task 6
-    # and would otherwise populate test_database_url, breaking the is-None assertion.
+def test_settings_has_defaults(monkeypatch):
+    # _env_file=None isolates this test from backend/.env which now exists post-Task 6.
+    # monkeypatch.delenv isolates from any TEST_DATABASE_URL set in the OS environment
+    # (e.g., when pytest is invoked with TEST_DATABASE_URL=... in the shell).
+    monkeypatch.delenv("TEST_DATABASE_URL", raising=False)
     settings = Settings(database_url="postgresql://test/test", _env_file=None)
 
     assert settings.api_v1_prefix == "/api/v1"

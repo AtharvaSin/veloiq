@@ -58,9 +58,11 @@ def seed_certificates_and_links(
     db: Session,
     customers: list[Customer],
     standards: list[Standard],
+    fake: Faker | None = None,
 ) -> tuple[list[Certificate], list[CertStandardLink]]:
     """Insert 200 certs + ~400 links. Includes 7 fuzzy-match SAP-format test pairs."""
-    fake = Faker()
+    if fake is None:
+        fake = Faker()
     fake.add_provider(TICProvider)
     now = datetime.now(UTC)
     today = date.today()

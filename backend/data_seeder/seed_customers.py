@@ -15,9 +15,10 @@ COUNTRY_DISTRIBUTION: list[tuple[str, str, str, int]] = [
 ]
 
 
-def seed_customers(db: Session) -> list[Customer]:
+def seed_customers(db: Session, fake: Faker | None = None) -> list[Customer]:
     """Insert 30 deterministic customers. Caller must flush or commit."""
-    fake = Faker()
+    if fake is None:
+        fake = Faker()
     fake.add_provider(TICProvider)
 
     customers: list[Customer] = []

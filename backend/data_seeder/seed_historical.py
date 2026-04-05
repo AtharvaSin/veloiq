@@ -61,9 +61,11 @@ def seed_historical(
     standards: list[Standard],
     cert_links: list[CertStandardLink],
     customers: list[Customer],
+    fake: Faker | None = None,
 ) -> tuple[list[MatchResult], list[Assessment], list[Notification], list[SalesEscalation]]:
     """Seed historical match_results, assessments, notifications, sales_escalations."""
-    fake = Faker()
+    if fake is None:
+        fake = Faker()
     now = datetime.now(UTC)
 
     # --- 30 match_results ---
