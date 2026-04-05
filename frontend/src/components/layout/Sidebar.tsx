@@ -1,7 +1,18 @@
-import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, ListChecks, Activity } from 'lucide-react'
+import { NavLink, useNavigate } from 'react-router-dom'
+import {
+  LayoutDashboard,
+  ListChecks,
+  Activity,
+  Users,
+  GitMerge,
+  Mail,
+  FileText,
+  TrendingUp,
+  Database,
+  LogOut,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { getActor } from '@/lib/demo-session'
+import { getActor, clearSession } from '@/lib/demo-session'
 import { ROUTES } from '@/lib/routes'
 
 interface NavItem {
@@ -13,10 +24,22 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
   { to: ROUTES.QUEUE, label: 'TCC Queue', icon: ListChecks },
+  { to: ROUTES.MATCHES, label: 'Match Queue', icon: GitMerge },
+  { to: ROUTES.CUSTOMERS, label: 'Customers', icon: Users },
+  { to: ROUTES.NOTIFICATIONS, label: 'Notifications', icon: Mail },
+  { to: ROUTES.PIPELINE, label: 'Sales Pipeline', icon: TrendingUp },
+  { to: ROUTES.INGESTION, label: 'Ingestion', icon: Database },
+  { to: ROUTES.AUDIT, label: 'Audit Log', icon: FileText },
 ]
 
 export function Sidebar() {
+  const navigate = useNavigate()
   const actor = getActor()
+
+  function handleLogout() {
+    clearSession()
+    navigate(ROUTES.LOGIN, { replace: true })
+  }
 
   return (
     <aside className="w-60 flex-shrink-0 bg-void border-r border-divider flex flex-col">
@@ -31,7 +54,7 @@ export function Sidebar() {
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 py-6 px-3 space-y-1">
+      <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
           return (
@@ -56,8 +79,8 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* User block at bottom */}
-      <div className="px-4 py-4 border-t border-divider">
+      {/* User block + logout at bottom */}
+      <div className="px-4 py-4 border-t border-divider space-y-3">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-full bg-elevated flex items-center justify-center border border-divider">
             <span className="text-sm font-semibold text-accent">
@@ -74,6 +97,14 @@ export function Sidebar() {
             <p className="text-xs text-muted">TCC Expert</p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-tight text-xs font-medium text-secondary hover:bg-elevated hover:text-primary border border-divider transition-colors"
+        >
+          <LogOut className="h-3.5 w-3.5" strokeWidth={2} />
+          <span>Sign out</span>
+        </button>
       </div>
     </aside>
   )

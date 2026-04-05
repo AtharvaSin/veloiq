@@ -12,15 +12,23 @@ import { Badge } from '@/components/ui/badge'
 import { useStandardsList } from '@/hooks/useStandards'
 import type { StandardRead, StandardsListParams } from '@/lib/types'
 
+// ISO/IEC deliverable stage codes used across the TÜV AC catalog.
+// 60 = Published (active), 90 = Withdrawn, 10 = New work item / draft.
+const STAGE_LABELS: Record<string, string> = {
+  '60': 'Published',
+  '90': 'Withdrawn',
+  '10': 'Draft',
+}
+
 const FILTER_SPECS: FilterSpec[] = [
   {
     key: 'status',
-    label: 'Status',
+    label: 'Stage',
     type: 'select',
     options: [
-      { label: 'Active', value: 'active' },
-      { label: 'Superseded', value: 'superseded' },
-      { label: 'Withdrawn', value: 'withdrawn' },
+      { label: 'Published (60)', value: '60' },
+      { label: 'Withdrawn (90)', value: '90' },
+      { label: 'Draft (10)', value: '10' },
     ],
   },
   {
@@ -47,12 +55,12 @@ function formatDate(iso: string | null | undefined): string {
   }
 }
 
-/** Map a standard lifecycle status to a Badge variant. */
+/** Map an ISO stage code to a Badge variant. */
 function badgeVariantFor(
   status: string,
 ): 'default' | 'secondary' | 'destructive' {
-  if (status === 'active') return 'default'
-  if (status === 'superseded') return 'secondary'
+  if (status === '60') return 'default'
+  if (status === '10') return 'secondary'
   return 'destructive'
 }
 
@@ -105,6 +113,7 @@ export function IngestionMonitorPage() {
   const rows = data?.data ?? []
   const countByStatus = (status: string): number =>
     rows.filter((s) => s.status === status).length
+  const supersededCount = rows.filter((s) => s.replaced_by != null).length
   const latestIngestedIso = rows.reduce<string | null>(
     (latest, row) =>
       latest == null || new Date(row.ingested_at) > new Date(latest)
@@ -127,10 +136,10 @@ export function IngestionMonitorPage() {
     },
     {
       key: 'status',
-      label: 'Status',
+      label: 'Stage',
       render: (row) => (
         <Badge variant={badgeVariantFor(row.status)}>
-          {row.status.toUpperCase()}
+          {STAGE_LABELS[row.status] ?? row.status}
         </Badge>
       ),
     },
@@ -179,19 +188,19 @@ export function IngestionMonitorPage() {
           <p className="section-label">Catalog summary</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KpiCard
-              label="Active"
-              value={countByStatus('active')}
+              label="Published"
+              value={countByStatus('60')}
               icon={CheckCircle2}
               accent
             />
             <KpiCard
               label="Superseded"
-              value={countByStatus('superseded')}
+              value={supersededCount}
               icon={Replace}
             />
             <KpiCard
               label="Withdrawn"
-              value={countByStatus('withdrawn')}
+              value={countByStatus('90')}
               icon={XCircle}
             />
             <KpiCard
