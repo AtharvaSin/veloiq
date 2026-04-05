@@ -2,11 +2,13 @@ import os
 from collections.abc import Generator
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.database import Base
+from app.database import Base, get_db
+from app.main import app
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
@@ -60,3 +62,25 @@ def db_session(db_connection: Connection) -> Generator[Session, None, None]:
 def actor() -> str:
     """Default test actor identity for audited mutations."""
     return "test-actor"
+
+
+# --- HTTP client fixture ---------------------------------------------------
+# (added for Part 7: wires FastAPI TestClient to the transactional db_session
+# fixture so end-to-end tests share the same rollback-isolated transaction.)
+
+
+@pytest.fixture()
+def client(db_session: Session) -> Generator[TestClient, None, None]:
+    """FastAPI TestClient with the get_db dependency overridden.
+
+    All DB work performed through the client shares the same transactional
+    db_session, so writes roll back after the test finishes — complete
+    isolation between tests without any cleanup code.
+    """
+    def override_get_db() -> Generator[Session, None, None]:
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
