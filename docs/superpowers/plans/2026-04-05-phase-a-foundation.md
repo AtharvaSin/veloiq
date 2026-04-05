@@ -368,8 +368,8 @@ def get_db() -> Generator[Session, None, None]:
 ```bash
 # Copy to .env and fill in values
 
-DATABASE_URL=postgresql://veloiq:veloiq_dev_password@localhost:5432/veloiq
-TEST_DATABASE_URL=postgresql://veloiq:veloiq_dev_password@localhost:5432/veloiq_test
+DATABASE_URL=postgresql://veloiq:veloiq_dev_password@localhost:5434/veloiq
+TEST_DATABASE_URL=postgresql://veloiq:veloiq_dev_password@localhost:5434/veloiq_test
 
 API_V1_PREFIX=/api/v1
 CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
@@ -743,7 +743,7 @@ cd backend
 source .venv/Scripts/activate
 python -c "
 from sqlalchemy import create_engine, text
-engine = create_engine('postgresql://veloiq:veloiq_dev_password@localhost:5432/veloiq_test')
+engine = create_engine('postgresql://veloiq:veloiq_dev_password@localhost:5434/veloiq_test')
 with engine.connect() as conn:
     result = conn.execute(text('SELECT 1 AS ok'))
     print('Connection OK:', result.scalar())
@@ -826,7 +826,7 @@ from app.database import Base
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
-    "postgresql://veloiq:veloiq_dev_password@localhost:5432/veloiq_test",
+    "postgresql://veloiq:veloiq_dev_password@localhost:5434/veloiq_test",
 )
 
 
@@ -8333,8 +8333,8 @@ Expected: `audit_entries=1, action=created, actor=verification-test`.
 cd backend
 source .venv/Scripts/activate
 # Use host python env with local postgres from docker-compose
-DATABASE_URL="postgresql://veloiq:veloiq_dev_password@localhost:5432/veloiq" \
-TEST_DATABASE_URL="postgresql://veloiq:veloiq_dev_password@localhost:5432/veloiq_test" \
+DATABASE_URL="postgresql://veloiq:veloiq_dev_password@localhost:5434/veloiq" \
+TEST_DATABASE_URL="postgresql://veloiq:veloiq_dev_password@localhost:5434/veloiq_test" \
 make test
 ```
 

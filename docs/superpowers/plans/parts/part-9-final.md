@@ -367,8 +367,8 @@ Expected: `audit_entries=1, action=created, actor=verification-test`.
 cd backend
 source .venv/Scripts/activate
 # Use host python env with local postgres from docker-compose
-DATABASE_URL="postgresql://veloiq:veloiq_dev_password@localhost:5432/veloiq" \
-TEST_DATABASE_URL="postgresql://veloiq:veloiq_dev_password@localhost:5432/veloiq_test" \
+DATABASE_URL="postgresql://veloiq:veloiq_dev_password@localhost:5434/veloiq" \
+TEST_DATABASE_URL="postgresql://veloiq:veloiq_dev_password@localhost:5434/veloiq_test" \
 make test
 ```
 
