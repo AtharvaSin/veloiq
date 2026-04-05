@@ -1,0 +1,57 @@
+import os
+from collections.abc import Generator
+
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.database import Base
+
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql://veloiq:veloiq_dev_password@localhost:5434/veloiq_test",
+)
+
+
+@pytest.fixture(scope="session")
+def test_engine() -> Generator[Engine, None, None]:
+    """Session-scoped engine connected to the test database.
+
+    Creates all tables via Base.metadata.create_all at session start.
+    Drops all tables at session end.
+    """
+    engine = create_engine(TEST_DATABASE_URL, pool_pre_ping=True)
+    Base.metadata.drop_all(engine)  # Clean slate in case prior run left tables
+    Base.metadata.create_all(engine)
+    yield engine
+    Base.metadata.drop_all(engine)
+    engine.dispose()
+
+
+@pytest.fixture()
+def db_connection(test_engine: Engine) -> Generator[Connection, None, None]:
+    """Per-test connection wrapped in a transaction that rolls back."""
+    connection = test_engine.connect()
+    transaction = connection.begin()
+    yield connection
+    transaction.rollback()
+    connection.close()
+
+
+@pytest.fixture()
+def db_session(db_connection: Connection) -> Generator[Session, None, None]:
+    """Per-test SQLAlchemy session bound to the transactional connection.
+
+    All writes are rolled back when the test completes — complete isolation.
+    """
+    TestSession = sessionmaker(bind=db_connection, autocommit=False, autoflush=False)
+    session = TestSession()
+    yield session
+    session.close()
+
+
+@pytest.fixture()
+def actor() -> str:
+    """Default test actor identity for audited mutations."""
+    return "test-actor"
