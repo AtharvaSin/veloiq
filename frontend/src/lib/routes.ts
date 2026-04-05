@@ -9,6 +9,8 @@ export const ROUTES = {
   CUSTOMERS: '/customers',
   CUSTOMER: (id: string) => `/customers/${id}`,
   CUSTOMER_PATTERN: '/customers/:id',
+  NOTIFICATIONS: '/notifications',
+  AUDIT: '/audit',
   ASSESSMENT: (id: string) => `/assessments/${id}`,
   ASSESSMENT_PATTERN: '/assessments/:id',
   MATCH: (id: string) => `/matches/${id}`,
