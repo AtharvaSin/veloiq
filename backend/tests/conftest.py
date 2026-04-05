@@ -36,7 +36,10 @@ def db_connection(test_engine: Engine) -> Generator[Connection, None, None]:
     transaction = connection.begin()
     yield connection
     try:
-        transaction.rollback()
+        # IntegrityError in a test auto-deassociates the transaction; skip
+        # rollback in that case to avoid a SAWarning (connection.close() still runs).
+        if transaction.is_active:
+            transaction.rollback()
     finally:
         connection.close()
 
