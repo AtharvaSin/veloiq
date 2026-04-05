@@ -1,0 +1,11 @@
+# Alembic
+alembic/versions/__pycache__/
+
+# Pytest
+.coverage
+coverage.xml
+htmlcov/
+
+# Build
+dist/
+*.egg-info/
