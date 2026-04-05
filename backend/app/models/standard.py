@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, Integer, String, Text, func
@@ -22,7 +23,7 @@ class Standard(Base):
     version_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     committee: Mapped[str | None] = mapped_column(String(100), nullable=True)
     ics_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    source_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    source_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
