@@ -1,3 +1,5 @@
+import { useQuery } from '@tanstack/react-query'
+import axios from 'axios'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -9,15 +11,85 @@ import {
 } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 
+interface PaginationMeta {
+  page: number
+  limit: number
+  total: number
+  total_pages: number
+}
+
+interface BackendHealthProbe {
+  standardsTotal: number
+  customersTotal: number
+  certificatesTotal: number
+}
+
+async function probeBackend(): Promise<BackendHealthProbe> {
+  // Hit three list endpoints via the /api proxy and capture their totals.
+  const [standards, customers, certificates] = await Promise.all([
+    axios.get<{ pagination: PaginationMeta }>('/api/v1/standards', {
+      params: { limit: 1 },
+    }),
+    axios.get<{ pagination: PaginationMeta }>('/api/v1/customers', {
+      params: { limit: 1 },
+    }),
+    axios.get<{ pagination: PaginationMeta }>('/api/v1/certificates', {
+      params: { limit: 1 },
+    }),
+  ])
+  return {
+    standardsTotal: standards.data.pagination.total,
+    customersTotal: customers.data.pagination.total,
+    certificatesTotal: certificates.data.pagination.total,
+  }
+}
+
 function App() {
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['backend-health-probe'],
+    queryFn: probeBackend,
+  })
+
   return (
     <div className="min-h-screen bg-obsidian text-primary p-16">
       <div className="max-w-5xl mx-auto space-y-8">
         <div>
-          <p className="section-label">00 — shadcn/ui Smoke Test</p>
+          <p className="section-label">00 — Frontend Scaffolding Complete</p>
           <h1 className="mt-2 text-4xl font-bold">VeloIQ</h1>
           <p className="mt-2 text-secondary">TÜV Rheinland Standards Automation Platform</p>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Backend connectivity probe</CardTitle>
+            <CardDescription>
+              TanStack Query + axios hitting backend via Vite /api proxy
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading && (
+              <p className="text-secondary font-mono">Loading from backend…</p>
+            )}
+            {isError && (
+              <p className="text-danger font-mono">
+                Error: {error instanceof Error ? error.message : String(error)}
+              </p>
+            )}
+            {data && (
+              <div className="space-y-1 font-mono">
+                <p className="text-secondary">
+                  standards.total = <span className="text-accent">{data.standardsTotal}</span>
+                </p>
+                <p className="text-secondary">
+                  customers.total = <span className="text-accent">{data.customersTotal}</span>
+                </p>
+                <p className="text-secondary">
+                  certificates.total = <span className="text-accent">{data.certificatesTotal}</span>
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
