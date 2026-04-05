@@ -1,27 +1,54 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
+  darkMode: ['class'],
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
-        // DESIGN.md obsidian palette
+        // shadcn semantic colors (backed by CSS variables in index.css)
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+        // DESIGN.md obsidian palette (direct hex, used for custom components)
         obsidian: '#0d0d14',
         surface: '#12121e',
         elevated: '#1a1a2e',
         void: '#0a0a0a',
         divider: '#1f1f35',
-        // Accent palette
         accent: {
           DEFAULT: '#00D492',
           hover: '#00b87d',
+          foreground: '#0d0d14',
         },
         warn: '#E8B931',
         danger: '#FF6B6B',
-        // Text palette
-        primary: '#EEEAE4',
-        secondary: '#A09D95',
-        muted: '#606060',
+        primary: {
+          DEFAULT: '#EEEAE4',
+          foreground: '#0d0d14',
+        },
+        secondary: {
+          DEFAULT: '#A09D95',
+          foreground: '#0d0d14',
+        },
+        muted: {
+          DEFAULT: '#606060',
+          foreground: '#A09D95',
+        },
         // Block identity (3px borders only, never fills)
         block: {
           cert: '#0EA5E9',
@@ -35,8 +62,11 @@ const config: Config = {
       },
       borderRadius: {
         tight: '4px',
-        DEFAULT: '8px',
+        DEFAULT: 'var(--radius)',
         modal: '12px',
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
       },
       fontSize: {
         // Label pattern from DESIGN.md
@@ -45,9 +75,23 @@ const config: Config = {
       letterSpacing: {
         label: '0.15em',
       },
+      keyframes: {
+        'accordion-down': {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
+        },
+        'accordion-up': {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
+        },
+      },
+      animation: {
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
+      },
     },
   },
-  plugins: [],
+  plugins: [require('tailwindcss-animate')],
 }
 
 export default config
