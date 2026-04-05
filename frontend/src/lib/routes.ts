@@ -11,6 +11,8 @@ export const ROUTES = {
   CUSTOMER_PATTERN: '/customers/:id',
   NOTIFICATIONS: '/notifications',
   AUDIT: '/audit',
+  PIPELINE: '/pipeline',
+  INGESTION: '/ingestion',
   ASSESSMENT: (id: string) => `/assessments/${id}`,
   ASSESSMENT_PATTERN: '/assessments/:id',
   MATCH: (id: string) => `/matches/${id}`,
