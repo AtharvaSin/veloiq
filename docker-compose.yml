@@ -18,5 +18,25 @@ services:
       timeout: 5s
       retries: 10
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: veloiq-backend
+    environment:
+      DATABASE_URL: postgresql://veloiq:veloiq_dev_password@postgres:5432/veloiq
+      TEST_DATABASE_URL: postgresql://veloiq:veloiq_dev_password@postgres:5432/veloiq_test
+      API_V1_PREFIX: /api/v1
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000"]'
+      FAKER_SEED: "42"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
 volumes:
   veloiq_postgres_data:
