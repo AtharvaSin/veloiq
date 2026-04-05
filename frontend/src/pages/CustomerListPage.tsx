@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { DataTable, type DataTableColumn } from '@/components/shared/DataTable'
@@ -52,13 +52,24 @@ export function CustomerListPage() {
   const params: CustomersListParams = {
     page,
     limit: 25,
-    sort: 'customer_number',
+    sort: 'country',
     order: 'asc',
     ...(filters.country && { country: filters.country }),
     ...(filters.sales_area && { sales_area: filters.sales_area }),
   }
 
   const { data, isLoading, isError, refetch } = useCustomersList(params)
+
+  // Client-side secondary sort: group by country, then by company name within each country.
+  const sortedData = useMemo(() => {
+    if (!data) return null
+    const rows = [...data.data].sort((a, b) => {
+      const countryCmp = a.country.localeCompare(b.country)
+      if (countryCmp !== 0) return countryCmp
+      return a.company_name.localeCompare(b.company_name)
+    })
+    return { ...data, data: rows }
+  }, [data])
 
   function handleFilterChange(key: string, value: string) {
     const next = new URLSearchParams(searchParams)
@@ -143,17 +154,17 @@ export function CustomerListPage() {
           onRetry={() => refetch()}
         />
       )}
-      {data && (
+      {sortedData && (
         <>
           <DataTable
             columns={columns}
-            data={data.data}
+            data={sortedData.data}
             rowKey={(row) => row.id}
             onRowClick={(row) => navigate(ROUTES.CUSTOMER(row.id))}
             emptyMessage="No customers match the current filters."
           />
           <PaginationControls
-            pagination={data.pagination}
+            pagination={sortedData.pagination}
             onPageChange={handlePageChange}
           />
         </>

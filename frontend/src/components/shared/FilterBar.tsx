@@ -17,6 +17,7 @@ export interface FilterSpec {
   type: 'select' | 'text'
   options?: { label: string; value: string }[]
   placeholder?: string
+  autoComplete?: string
 }
 
 interface FilterBarProps {
@@ -74,6 +75,7 @@ export function FilterBar({
                 placeholder={filter.placeholder}
                 value={current}
                 onChange={(e) => onChange(filter.key, e.target.value)}
+                autoComplete={filter.autoComplete}
                 className="bg-obsidian"
               />
             )}

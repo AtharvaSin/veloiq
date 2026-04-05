@@ -95,7 +95,7 @@ export function MatchForensicPage() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate(ROUTES.MATCHES)}
           className="text-secondary hover:text-primary inline-flex items-center gap-1"
         >
           <ArrowLeft className="h-3 w-3" />

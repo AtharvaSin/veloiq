@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { Database, FileCheck, Shield, MessageSquare, Activity } from 'lucide-react'
 import { KpiCard } from '@/components/shared/KpiCard'
 import { LoadingState } from '@/components/shared/LoadingState'
@@ -9,6 +10,7 @@ import { useAssessmentsList } from '@/hooks/useAssessments'
 import { useNotificationsList } from '@/hooks/useNotifications'
 import { useCertificatesList } from '@/hooks/useCertificates'
 import { useEscalationsList } from '@/hooks/useEscalations'
+import { ROUTES } from '@/lib/routes'
 
 function useCountQuery<
   T extends { data: { pagination: { total: number } } | undefined; isLoading: boolean; isError: boolean },
@@ -69,28 +71,48 @@ export function DashboardPage() {
         <LoadingState rows={1} className="h-28" />
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard
-            label="Standards Ingested"
-            value={standards.count}
-            icon={Database}
-            accent
-          />
-          <KpiCard
-            label="Matches Generated"
-            value={matches.count}
-            icon={Activity}
-            delta={{ value: `${autoMatchRate} auto-match`, direction: 'up' }}
-          />
-          <KpiCard
-            label="Assessments Complete"
-            value={assessments.count}
-            icon={Shield}
-          />
-          <KpiCard
-            label="Notifications Sent"
-            value={notifications.count}
-            icon={MessageSquare}
-          />
+          <Link
+            to={ROUTES.INGESTION}
+            className="block focus:outline-none focus:ring-2 focus:ring-accent rounded"
+          >
+            <KpiCard
+              label="Standards Ingested"
+              value={standards.count}
+              icon={Database}
+              accent
+            />
+          </Link>
+          <Link
+            to={ROUTES.MATCHES}
+            className="block focus:outline-none focus:ring-2 focus:ring-accent rounded"
+          >
+            <KpiCard
+              label="Matches Generated"
+              value={matches.count}
+              icon={Activity}
+              delta={{ value: `${autoMatchRate} auto-match`, direction: 'up' }}
+            />
+          </Link>
+          <Link
+            to={ROUTES.QUEUE}
+            className="block focus:outline-none focus:ring-2 focus:ring-accent rounded"
+          >
+            <KpiCard
+              label="Assessments Complete"
+              value={assessments.count}
+              icon={Shield}
+            />
+          </Link>
+          <Link
+            to={ROUTES.NOTIFICATIONS}
+            className="block focus:outline-none focus:ring-2 focus:ring-accent rounded"
+          >
+            <KpiCard
+              label="Notifications Sent"
+              value={notifications.count}
+              icon={MessageSquare}
+            />
+          </Link>
         </div>
       )}
 
@@ -100,12 +122,16 @@ export function DashboardPage() {
           <p className="section-label">Pipeline health</p>
           <div className="mt-4 space-y-3">
             {[
-              { label: 'Ingestion', count: standards.count, stage: '01' },
-              { label: 'Fuzzy matching', count: matches.count, stage: '02' },
-              { label: 'Expert assessment', count: assessments.count, stage: '03' },
-              { label: 'Customer notification', count: notifications.count, stage: '04' },
+              { label: 'Ingestion', count: standards.count, stage: '01', to: ROUTES.INGESTION },
+              { label: 'Fuzzy matching', count: matches.count, stage: '02', to: ROUTES.MATCHES },
+              { label: 'Expert assessment', count: assessments.count, stage: '03', to: ROUTES.QUEUE },
+              { label: 'Customer notification', count: notifications.count, stage: '04', to: ROUTES.NOTIFICATIONS },
             ].map((stage) => (
-              <div key={stage.stage} className="flex items-center gap-4 py-2 border-b border-divider last:border-0">
+              <Link
+                key={stage.stage}
+                to={stage.to}
+                className="flex items-center gap-4 py-2 border-b border-divider last:border-0 hover:bg-elevated transition-colors rounded px-2 -mx-2"
+              >
                 <span className="font-mono text-xs text-accent w-8">{stage.stage}</span>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-primary">{stage.label}</p>
@@ -114,12 +140,15 @@ export function DashboardPage() {
                   {stage.count.toLocaleString()}
                 </span>
                 <span className="text-xs text-muted uppercase tracking-label">records</span>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
 
-        <div className="bg-surface border border-divider rounded p-6">
+        <Link
+          to={ROUTES.PIPELINE}
+          className="bg-surface border border-divider rounded p-6 block hover:border-accent/40 transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
+        >
           <p className="section-label">Escalations open</p>
           <div className="mt-6">
             <p className="font-mono text-5xl font-bold text-primary">
@@ -135,7 +164,7 @@ export function DashboardPage() {
               </span>
             </div>
           </div>
-        </div>
+        </Link>
       </div>
     </div>
   )

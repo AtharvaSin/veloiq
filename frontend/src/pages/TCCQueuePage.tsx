@@ -40,6 +40,7 @@ const FILTER_SPECS: FilterSpec[] = [
     label: 'Assessor',
     type: 'text',
     placeholder: 'Dr. M. Weber',
+    autoComplete: 'off',
   },
 ]
 
@@ -144,12 +145,21 @@ export function TCCQueuePage() {
       key: 'reason_code',
       label: 'Reason',
       className: 'font-mono text-xs text-muted',
+      render: (row) => row.reason_code.replace(/_/g, '-'),
     },
     {
       key: 'decided_at',
       label: 'Decided at',
       className: 'font-mono text-xs text-muted',
       render: (row) => formatDateTime(row.decided_at),
+    },
+    {
+      key: 'signature_hash',
+      label: 'Sig',
+      className: 'font-mono text-xs text-muted',
+      render: (row) => (
+        <span title={row.signature_hash}>{row.signature_hash.slice(0, 8)}…</span>
+      ),
     },
   ]
 

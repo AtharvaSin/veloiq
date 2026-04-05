@@ -13,6 +13,7 @@ export const ROUTES = {
   AUDIT: '/audit',
   PIPELINE: '/pipeline',
   INGESTION: '/ingestion',
+  MATCHES: '/matches',
   ASSESSMENT: (id: string) => `/assessments/${id}`,
   ASSESSMENT_PATTERN: '/assessments/:id',
   MATCH: (id: string) => `/matches/${id}`,
