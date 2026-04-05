@@ -1,0 +1,29 @@
+# Dependencies (reinstalled in container)
+node_modules/
+
+# Build output (rebuilt in container)
+dist/
+dist-ssr/
+
+# Environment files
+.env
+.env.local
+.env.example
+
+# Editor + OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Git metadata
+.git/
+.gitignore
+
+# Docs + tests (not needed at runtime)
+README.md
+coverage/
+
+# Vite cache
+.vite/
