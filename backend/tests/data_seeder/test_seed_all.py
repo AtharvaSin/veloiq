@@ -15,14 +15,14 @@ from data_seeder.seed_all import run_seed_pipeline
 def test_orchestrator_seeds_expected_counts(db_session: Session) -> None:
     run_seed_pipeline(db_session)
 
-    assert db_session.query(Customer).count() == 30
-    assert db_session.query(Standard).count() == 50
-    assert db_session.query(Certificate).count() == 200
-    assert 380 <= db_session.query(CertStandardLink).count() <= 420
-    assert db_session.query(MatchResult).count() == 30
-    assert db_session.query(Assessment).count() == 30
-    assert db_session.query(Notification).count() == 20
-    assert db_session.query(SalesEscalation).count() == 5
+    assert db_session.query(Customer).count() == 10
+    assert db_session.query(Standard).count() == 10
+    assert db_session.query(Certificate).count() == 10
+    assert 12 <= db_session.query(CertStandardLink).count() <= 18
+    assert db_session.query(MatchResult).count() == 10
+    assert db_session.query(Assessment).count() == 10
+    assert db_session.query(Notification).count() == 8
+    assert db_session.query(SalesEscalation).count() == 3
 
 
 def test_orchestrator_is_deterministic_across_runs(db_session: Session) -> None:

@@ -1,58 +1,59 @@
-import random
-from collections import Counter
-
-from faker import Faker
 from sqlalchemy.orm import Session
 
 from app.models.standard import Standard
-from data_seeder.seed_standards import seed_standards
+from data_seeder.seed_standards import FUZZY_MATCH_ANCHORS, seed_standards
 
 
-def _seeded() -> None:
-    random.seed(42)
-    Faker.seed(42)
-
-
-def test_seed_standards_creates_50_records(db_session: Session) -> None:
-    _seeded()
+def test_seed_standards_creates_10_records(db_session: Session) -> None:
     standards = seed_standards(db_session)
-    assert len(standards) == 50
-    assert db_session.query(Standard).count() == 50
-
-
-def test_seed_standards_status_distribution(db_session: Session) -> None:
-    _seeded()
-    standards = seed_standards(db_session)
-    counts = Counter(s.status for s in standards)
-    assert counts["00"] == 3
-    assert counts["10"] + counts["20"] == 5
-    assert counts["30"] == 5
-    assert counts["40"] == 5
-    assert counts["50"] == 5
-    assert counts["60"] == 15
-    assert counts["90"] == 7
-    assert counts["95"] == 5
-
-
-def test_seed_standards_includes_fuzzy_match_anchors(db_session: Session) -> None:
-    """The 7 Natos sides of the fuzzy test pairs must be seeded as standards."""
-    _seeded()
-    seed_standards(db_session)
-    codes = {s.ac_code for s in db_session.query(Standard).all()}
-    expected_anchors = {
-        "ISO 9001:2015",
-        "ISO 14001:2015",
-        "IEC 62368-1:2023",
-        "ISO 1234:1998",
-        "ISO 14001",
-        "ISO 45001:2018",
-        "IEC 61000-4-2:2008",
-    }
-    assert expected_anchors.issubset(codes)
+    assert len(standards) == 10
+    assert db_session.query(Standard).count() == 10
 
 
 def test_seed_standards_ac_codes_unique(db_session: Session) -> None:
-    _seeded()
     standards = seed_standards(db_session)
     codes = [s.ac_code for s in standards]
     assert len(codes) == len(set(codes))
+
+
+def test_seed_standards_includes_fuzzy_match_anchors(db_session: Session) -> None:
+    """The 5 fuzzy-match anchor ac_codes must be present in the seeded standards."""
+    seed_standards(db_session)
+    codes = {s.ac_code for s in db_session.query(Standard).all()}
+    assert set(FUZZY_MATCH_ANCHORS).issubset(codes)
+
+
+def test_seed_standards_real_standard_codes_present(db_session: Session) -> None:
+    """All 10 curated real-world ac_codes must be seeded."""
+    seed_standards(db_session)
+    codes = {s.ac_code for s in db_session.query(Standard).all()}
+    expected = {
+        "ISO 9001:2015",
+        "ISO 14001:2015",
+        "ISO 45001:2018",
+        "IEC 62368-1:2023",
+        "IEC 61010-1:2010",
+        "ISO 13485:2016",
+        "IEC 60601-1:2020",
+        "IEC 60601-1:2024",
+        "ISO 27001:2022",
+        "IEC 62443-3-3:2023",
+    }
+    assert expected == codes
+
+
+def test_seed_standards_iec_60601_replaced_by_set(db_session: Session) -> None:
+    """IEC 60601-1:2020 (withdrawn) must have replaced_by pointing to the 2024 draft."""
+    seed_standards(db_session)
+    withdrawn = db_session.query(Standard).filter_by(ac_code="IEC 60601-1:2020").one()
+    assert withdrawn.replaced_by == "IEC 60601-1:2024"
+    assert withdrawn.status == "90"
+
+
+def test_seed_standards_is_deterministic(db_session: Session) -> None:
+    first = [(s.ac_code, s.title) for s in seed_standards(db_session)]
+    db_session.query(Standard).delete()
+    db_session.flush()
+
+    second = [(s.ac_code, s.title) for s in seed_standards(db_session)]
+    assert first == second
