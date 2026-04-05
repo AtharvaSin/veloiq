@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VeloIQ — System Architecture Report</title>
+<style>
+/* ================================================================
+   VeloIQ Architecture Report — Obsidian Aurora / Context A grammar
+   Print-safe: dark theme preserved in PDF export via color-adjust.
+   ================================================================ */
+
+/* Force color preservation in PDF */
+html, body, * {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+  color-adjust: exact !important;
+}
+
+/* Design tokens */
+:root {
+  --bg-void: #080810;
+  --bg-base: #0A0A0A;
+  --bg-surface: #12121e;
+  --bg-elevated: #1a1a2e;
+  --border: #1f1f35;
+  --divider: #28283f;
+  --accent: #00D492;
+  --accent-glow: #00D49240;
+  --warn: #EAB308;
+  --danger: #EF4444;
+  --info: #60a5fa;
+  --text-primary: #EEEAE4;
+  --text-secondary: #A09D95;
+  --text-muted: #606060;
+  --font-body: 'DM Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 48px 40px 80px;
+}
+
+/* Typography */
+h1, h2, h3, h4 { font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+h1 { font-size: 56px; margin-bottom: 16px; }
+h2 { font-size: 32px; margin-bottom: 16px; }
+h3 { font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+h4 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+p { margin-bottom: 12px; color: var(--text-secondary); }
+strong { color: var(--text-primary); font-weight: 600; }
+code, pre, .mono { font-family: var(--font-mono); }
+a { color: var(--accent); text-decoration: none; }
+
+/* Section labels — `01 —` prefix in accent, JetBrains Mono */
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: block;
+  margin-bottom: 8px;
+}
+.section-num {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* Layout */
+section {
+  margin-bottom: 72px;
+}
+section.page-break { break-before: page; page-break-before: always; }
+
+.hero {
+  padding: 48px 0 64px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 72px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 0; right: -20%;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 60%);
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 0;
+}
+.hero > * { position: relative; z-index: 1; }
+.hero h1 { max-width: 900px; }
+.hero .subtitle { font-size: 18px; color: var(--text-secondary); max-width: 680px; margin-top: 24px; }
+.hero .footer-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  text-transform: uppercase;
+}
+
+/* Cards and grids */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 24px;
+}
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+
+/* Metric cards — Context A signature pattern */
+.metric-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 20px;
+  position: relative;
+}
+.metric-card.accent { border-left: 2px solid var(--accent); }
+.metric-card .label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+.metric-card .value {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.metric-card .unit { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+thead { background: var(--bg-elevated); }
+th {
+  text-align: left;
+  padding: 12px 14px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+}
+td { padding: 12px 14px; border-top: 1px solid var(--border); color: var(--text-secondary); }
+tr:nth-child(even) td { background: rgba(0,0,0,0.2); }
+td code, td .mono { font-family: var(--font-mono); font-size: 11px; color: var(--text-primary); }
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid;
+}
+.badge.accent { color: var(--accent); background: rgba(0,212,146,0.1); border-color: rgba(0,212,146,0.3); }
+.badge.warn { color: var(--warn); background: rgba(234,179,8,0.1); border-color: rgba(234,179,8,0.3); }
+.badge.danger { color: var(--danger); background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); }
+.badge.info { color: var(--info); background: rgba(96,165,250,0.1); border-color: rgba(96,165,250,0.3); }
+.badge.muted { color: var(--text-muted); background: rgba(96,96,96,0.1); border-color: var(--divider); }
+
+/* Code blocks */
+pre.code {
+  background: var(--bg-void);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: 4px;
+  padding: 16px 20px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  overflow-x: auto;
+  margin: 16px 0;
+}
+pre.code .k { color: var(--accent); font-weight: 500; }
+pre.code .c { color: var(--text-muted); font-style: italic; }
+pre.code .s { color: #fbbf24; }
+pre.code .highlight { background: rgba(0,212,146,0.08); display: inline-block; width: 100%; }
+
+/* Screenshots */
+.screenshot-wrap {
+  margin: 20px 0;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.screenshot {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: block;
+}
+.screenshot-caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--divider);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.screenshot-caption .route { color: var(--accent); }
+
+/* Annotation callouts legend */
+.callouts {
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.callouts ol {
+  list-style: none;
+  counter-reset: callout;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 20px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.callouts ol li {
+  counter-increment: callout;
+  padding-left: 28px;
+  position: relative;
+  line-height: 1.5;
+}
+.callouts ol li::before {
+  content: counter(callout);
+  position: absolute;
+  left: 0; top: 1px;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  color: var(--bg-base);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* SVG diagram wrapper */
+.diagram {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 24px;
+  margin: 20px 0;
+  overflow-x: auto;
+}
+.diagram svg { width: 100%; height: auto; display: block; }
+.diagram-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+/* Tech pills */
+.pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 10px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+.pill.accent { color: var(--accent); border-color: rgba(0,212,146,0.3); }
+
+/* Print rules */
+@page { size: A4; margin: 14mm; }
+@media print {
+  body {
+    background: var(--bg-base) !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  section.page-break { break-before: page !important; page-break-before: always !important; }
+  .screenshot-wrap { break-inside: avoid; page-break-inside: avoid; }
+  .card, .metric-card, .diagram { break-inside: avoid; page-break-inside: avoid; }
+  /* Allow tables to break across pages — tables can be long */
+  table { break-inside: auto; page-break-inside: auto; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  svg { max-width: 100% !important; }
+  h1, h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
+  h1 { font-size: 42px; }
+  h2 { font-size: 26px; }
+  .hero::before { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ================================================================ -->
+<!-- SECTION 1 — EXECUTIVE SUMMARY (Hero Statement)                    -->
+<!-- ================================================================ -->
+<section class="hero">
+  <span class="section-label">01 &mdash; Executive Summary</span>
+  <h1>Matching velocity.<br>Compliance certainty.</h1>
+  <p class="subtitle">
+    VeloIQ is T&Uuml;V Rheinland's automated standards pipeline &mdash;
+    ingesting certification standards, fuzzy-matching them against customer
+    certificates, capturing expert TCC impact assessments, and dispatching
+    customer notifications with immutable audit trail enforcement.
+  </p>
+
+  <div class="grid-5" style="margin-top: 40px;">
+    <div class="metric-card accent">
+      <div class="label">Stage 01</div>
+      <div class="value" style="font-size: 18px;">Ingestion</div>
+      <div class="unit">Standards + Certificates</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Stage 02</div>
+      <div class="value" style="font-size: 18px;">Matching</div>
+      <div class="unit">Fuzzy algorithms</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Stage 03</div>
+      <div class="value" style="font-size: 18px;">Assessment</div>
+      <div class="unit">TCC expert review</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Stage 04</div>
+      <div class="value" style="font-size: 18px;">Notification</div>
+      <div class="unit">Customer outreach</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Stage 05</div>
+      <div class="value" style="font-size: 18px;">Sales</div>
+      <div class="unit">Escalation &amp; follow-up</div>
+    </div>
+  </div>
+
+  <div style="margin-top: 40px; display: flex; gap: 32px; flex-wrap: wrap;">
+    <div>
+      <div class="section-label" style="color: var(--text-muted);">Phase A &mdash; Live</div>
+      <div style="display: flex; gap: 6px; margin-top: 8px;">
+        <span class="badge accent">Foundation</span>
+        <span class="badge accent">Audit Trail</span>
+        <span class="badge accent">Seed Data</span>
+      </div>
+    </div>
+    <div>
+      <div class="section-label" style="color: var(--text-muted);">Phase B-D &mdash; Deferred</div>
+      <div style="display: flex; gap: 6px; margin-top: 8px;">
+        <span class="badge muted">Fuzzy Engine</span>
+        <span class="badge muted">Decision POST</span>
+        <span class="badge muted">Dispatch + SLA</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-tag">
+    velocity &nbsp;&mdash;&nbsp; certainty &nbsp;&mdash;&nbsp; T&Uuml;V Rheinland POC &nbsp;&mdash;&nbsp; v0.1.0 Phase A
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- SECTION 2 — SYSTEM ARCHITECTURE                                   -->
+<!-- ================================================================ -->
+<section class="page-break">
+  <span class="section-label">02 &mdash; System Architecture</span>
+  <h2>Three-tier Docker topology</h2>
+  <p>
+    VeloIQ runs as three containerised services orchestrated through Docker Compose.
+    A React SPA served behind nginx talks to a FastAPI backend, which owns all
+    database writes through a service layer that enforces atomic audit logging.
+  </p>
+
+  <div class="diagram">
+    <div class="diagram-title">Architecture &mdash; Request lifecycle &amp; container topology</div>
+    <svg viewBox="0 0 1200 420" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#00D492"/>
+        </marker>
+        <marker id="arrow-back" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#A09D95"/>
+        </marker>
+      </defs>
+      <style>
+        .tier-box { fill: #12121e; stroke: #1f1f35; stroke-width: 1; }
+        .tier-box.active { stroke: #00D492; stroke-width: 1.5; }
+        .tier-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; fill: #00D492; letter-spacing: 0.08em; }
+        .tier-title { font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 700; fill: #EEEAE4; }
+        .tier-subtitle { font-family: 'DM Sans', sans-serif; font-size: 11px; fill: #A09D95; }
+        .tier-port { font-family: 'JetBrains Mono', monospace; font-size: 10px; fill: #606060; }
+        .arrow-line { stroke: #00D492; stroke-width: 1.5; fill: none; }
+        .arrow-line-back { stroke: #A09D95; stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
+        .edge-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: #EEEAE4; }
+      </style>
+
+      <!-- Browser/Client -->
+      <rect x="20" y="140" width="170" height="140" rx="4" class="tier-box active"/>
+      <text x="36" y="168" class="tier-label">01 &mdash; CLIENT</text>
+      <text x="36" y="200" class="tier-title">Browser</text>
+      <text x="36" y="220" class="tier-subtitle">TCC Expert / Sales</text>
+      <text x="36" y="238" class="tier-subtitle">Compliance Officer</text>
+      <text x="36" y="264" class="tier-port">React 19 + TanStack Query</text>
+
+      <!-- Frontend container -->
+      <rect x="270" y="140" width="200" height="140" rx="4" class="tier-box"/>
+      <text x="286" y="168" class="tier-label">02 &mdash; FRONTEND</text>
+      <text x="286" y="200" class="tier-title">nginx + Vite SPA</text>
+      <text x="286" y="220" class="tier-subtitle">veloiq-frontend</text>
+      <text x="286" y="238" class="tier-subtitle">Static HTML/JS/CSS</text>
+      <text x="286" y="264" class="tier-port">:5173 &rarr; :80</text>
+
+      <!-- Backend container -->
+      <rect x="550" y="140" width="220" height="140" rx="4" class="tier-box"/>
+      <text x="566" y="168" class="tier-label">03 &mdash; BACKEND</text>
+      <text x="566" y="200" class="tier-title">FastAPI + uvicorn</text>
+      <text x="566" y="220" class="tier-subtitle">veloiq-backend</text>
+      <text x="566" y="238" class="tier-subtitle">23 REST endpoints</text>
+      <text x="566" y="264" class="tier-port">:8000 &rarr; :8000</text>
+
+      <!-- Database container -->
+      <rect x="850" y="140" width="200" height="140" rx="4" class="tier-box"/>
+      <text x="866" y="168" class="tier-label">04 &mdash; DATABASE</text>
+      <text x="866" y="200" class="tier-title">PostgreSQL 16</text>
+      <text x="866" y="220" class="tier-subtitle">veloiq-postgres</text>
+      <text x="866" y="238" class="tier-subtitle">9 tables + JSONB</text>
+      <text x="866" y="264" class="tier-port">:5434 &rarr; :5432</text>
+
+      <!-- Request arrows -->
+      <path d="M190 180 L270 180" class="arrow-line" marker-end="url(#arrow)"/>
+      <text x="205" y="172" class="edge-label">HTTP</text>
+      <path d="M470 180 L550 180" class="arrow-line" marker-end="url(#arrow)"/>
+      <text x="485" y="172" class="edge-label">/api/v1</text>
+      <path d="M770 180 L850 180" class="arrow-line" marker-end="url(#arrow)"/>
+      <text x="785" y="172" class="edge-label">SQL</text>
+
+      <!-- Response arrows -->
+      <path d="M850 240 L770 240" class="arrow-line-back" marker-end="url(#arrow-back)"/>
+      <text x="785" y="260" class="edge-label" style="fill: #A09D95;">rows</text>
+      <path d="M550 240 L470 240" class="arrow-line-back" marker-end="url(#arrow-back)"/>
+      <text x="485" y="260" class="edge-label" style="fill: #A09D95;">JSON</text>
+      <path d="M270 240 L190 240" class="arrow-line-back" marker-end="url(#arrow-back)"/>
+      <text x="205" y="260" class="edge-label" style="fill: #A09D95;">HTML</text>
+
+      <!-- Bottom band: request lifecycle -->
+      <rect x="20" y="340" width="1030" height="60" rx="4" fill="#0A0A0A" stroke="#1f1f35"/>
+      <text x="40" y="362" class="tier-label">REQUEST LIFECYCLE</text>
+      <text x="40" y="386" class="tier-subtitle" style="font-size: 12px; fill: #EEEAE4;">
+        X-User-Id header &#x2192; Router (/api/v1) &#x2192; Service layer (mutation + write_audit_entry) &#x2192; SQLAlchemy ORM &#x2192; PostgreSQL (atomic commit)
+      </text>
+
+      <!-- Docker Compose bracket -->
+      <path d="M260 110 L260 100 L1060 100 L1060 110" stroke="#00D492" stroke-width="1" fill="none" stroke-dasharray="3 3"/>
+      <text x="620" y="92" class="tier-label" style="fill: #00D492; font-size: 9px;">DOCKER COMPOSE &mdash; SHARED NETWORK</text>
+    </svg>
+  </div>
+
+  <div class="grid-2" style="margin-top: 32px;">
+    <div class="card">
+      <div class="section-label">Backend stack</div>
+      <div class="pills">
+        <span class="pill accent">FastAPI</span>
+        <span class="pill">SQLAlchemy 2.x</span>
+        <span class="pill">Alembic</span>
+        <span class="pill">Pydantic v2</span>
+        <span class="pill">Python 3.12</span>
+        <span class="pill">uvicorn</span>
+      </div>
+      <p style="margin-top: 12px; font-size: 13px;">
+        Service-layer architecture with atomic audit enforcement. Hexagonal ports reserved for Phase B-D.
+      </p>
+    </div>
+    <div class="card">
+      <div class="section-label">Frontend stack</div>
+      <div class="pills">
+        <span class="pill accent">React 19</span>
+        <span class="pill">TypeScript 5</span>
+        <span class="pill">Vite 5</span>
+        <span class="pill">TanStack Query v5</span>
+        <span class="pill">Tailwind CSS 3.4</span>
+        <span class="pill">shadcn/ui</span>
+      </div>
+      <p style="margin-top: 12px; font-size: 13px;">
+        12-page SPA with URL-state filters, X-User-Id session header, and typed Pydantic-mirror schemas.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- SECTION 3 — DATABASE SCHEMA                                       -->
+<!-- ================================================================ -->
+<section class="page-break">
+  <span class="section-label">03 &mdash; Database Schema</span>
+  <h2>Nine tables, five pipeline stages</h2>
+  <p>
+    Tables are colour-coded by their role in the 4-stage pipeline. The
+    <strong>audit_log</strong> table is cross-cutting and append-only &mdash;
+    the application role has <code>UPDATE</code> and <code>DELETE</code> revoked
+    at the PostgreSQL layer, making audit entries immutable once committed.
+  </p>
+
+  <div class="diagram">
+    <div class="diagram-title">Entity-relationship diagram &mdash; 9 tables, colour-coded by pipeline stage</div>
+    <svg viewBox="0 0 1200 860" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="fk-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#A09D95"/>
+        </marker>
+      </defs>
+      <style>
+        .tbl { fill: #12121e; stroke-width: 1.5; }
+        .tbl-ingest { stroke: #60a5fa; }
+        .tbl-match { stroke: #00D492; }
+        .tbl-assess { stroke: #EAB308; }
+        .tbl-notify { stroke: #EF4444; }
+        .tbl-audit { stroke: #606060; stroke-dasharray: 4 3; }
+        .tbl-header { fill: #1a1a2e; }
+        .tbl-name { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; fill: #EEEAE4; }
+        .tbl-stage { font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; }
+        .field { font-family: 'JetBrains Mono', monospace; font-size: 10px; fill: #A09D95; }
+        .field-pk { fill: #00D492; font-weight: 600; }
+        .field-fk { fill: #60a5fa; }
+        .fk-line { stroke: #A09D95; stroke-width: 1; fill: none; stroke-dasharray: 3 3; }
+        .stage-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; }
+      </style>
+
+      <!-- Stage label band at top -->
+      <text x="20" y="24" class="stage-label" fill="#60a5fa">&#9632; INGESTION</text>
+      <text x="170" y="24" class="stage-label" fill="#00D492">&#9632; MATCHING</text>
+      <text x="320" y="24" class="stage-label" fill="#EAB308">&#9632; ASSESSMENT</text>
+      <text x="480" y="24" class="stage-label" fill="#EF4444">&#9632; NOTIFICATION + SALES</text>
+      <text x="720" y="24" class="stage-label" fill="#A09D95">&#9632; COMPLIANCE (CROSS-CUTTING)</text>
+
+      <!-- customers -->
+      <rect x="20" y="60" width="200" height="160" rx="4" class="tbl tbl-ingest"/>
+      <rect x="20" y="60" width="200" height="28" rx="4" class="tbl-header"/>
+      <text x="30" y="78" class="tbl-name">customers</text>
+      <text x="185" y="78" class="tbl-stage" fill="#60a5fa">INGEST</text>
+      <text x="30" y="104" class="field field-pk">&#9679; id UUID PK</text>
+      <text x="30" y="120" class="field">customer_number UNIQUE</text>
+      <text x="30" y="134" class="field">company_name</text>
+      <text x="30" y="148" class="field">country CHAR(2)</text>
+      <text x="30" y="162" class="field">sales_area</text>
+      <text x="30" y="176" class="field">language CHAR(2)</text>
+      <text x="30" y="190" class="field">contact_name</text>
+      <text x="30" y="204" class="field">contact_email</text>
+
+      <!-- standards -->
+      <rect x="260" y="60" width="220" height="220" rx="4" class="tbl tbl-ingest"/>
+      <rect x="260" y="60" width="220" height="28" rx="4" class="tbl-header"/>
+      <text x="270" y="78" class="tbl-name">standards</text>
+      <text x="425" y="78" class="tbl-stage" fill="#60a5fa">INGEST</text>
+      <text x="270" y="104" class="field field-pk">&#9679; id UUID PK</text>
+      <text x="270" y="120" class="field">ac_code UNIQUE</text>
+      <text x="270" y="134" class="field">title TEXT</text>
+      <text x="270" y="148" class="field">status (ISO stage code)</text>
+      <text x="270" y="162" class="field">replaced_by</text>
+      <text x="270" y="176" class="field">normalized_code</text>
+      <text x="270" y="190" class="field">base_number</text>
+      <text x="270" y="204" class="field">version_year</text>
+      <text x="270" y="218" class="field">committee</text>
+      <text x="270" y="232" class="field">ics_code</text>
+      <text x="270" y="246" class="field">source_payload JSONB</text>
+      <text x="270" y="260" class="field">ingested_at</text>
+
+      <!-- certificates -->
+      <rect x="20" y="250" width="200" height="170" rx="4" class="tbl tbl-ingest"/>
+      <rect x="20" y="250" width="200" height="28" rx="4" class="tbl-header"/>
+      <text x="30" y="268" class="tbl-name">certificates</text>
+      <text x="185" y="268" class="tbl-stage" fill="#60a5fa">INGEST</text>
+      <text x="30" y="294" class="field field-pk">&#9679; id UUID PK</text>
+      <text x="30" y="310" class="field">certificate_number UNIQUE</text>
+      <text x="30" y="324" class="field field-fk">&#8594; customer_id FK</text>
+      <text x="30" y="338" class="field">product_description</text>
+      <text x="30" y="352" class="field">status CHECK(4 values)</text>
+      <text x="30" y="366" class="field">issue_date</text>
+      <text x="30" y="380" class="field">expiry_date</text>
+
+      <!-- cert_standard_links -->
+      <rect x="20" y="450" width="220" height="140" rx="4" class="tbl tbl-ingest"/>
+      <rect x="20" y="450" width="220" height="28" rx="4" class="tbl-header"/>
+      <text x="30" y="468" class="tbl-name">cert_standard_links</text>
+      <text x="205" y="468" class="tbl-stage" fill="#60a5fa">INGEST</text>
+      <text x="30" y="494" class="field field-pk">&#9679; id UUID PK</text>
+      <text x="30" y="510" class="field field-fk">&#8594; certificate_id FK</text>
+      <text x="30" y="524" class="field">standard_ref</text>
+      <text x="30" y="538" class="field">normalized_ref</text>
+      <text x="30" y="552" class="field">base_number</text>
+      <text x="30" y="566" class="field">linked_at</text>
+
+      <!-- match_results -->
+      <rect x="290" y="350" width="220" height="200" rx="4" class="tbl tbl-match"/>
+      <rect x="290" y="350" width="220" height="28" rx="4" class="tbl-header"/>
+      <text x="300" y="368" class="tbl-name">match_results</text>
+      <text x="450" y="368" class="tbl-stage" fill="#00D492">MATCH</text>
+      <text x="300" y="394" class="field field-pk">&#9679; id UUID PK</text>
+      <text x="300" y="410" class="field field-fk">&#8594; natos_standard_id FK</text>
+      <text x="300" y="424" class="field field-fk">&#8594; cert_link_id FK</text>
+      <text x="300" y="438" class="field">similarity_score</text>
+      <text x="300" y="452" class="field">levenshtein_score</text>
+      <text x="300" y="466" class="field">jaro_winkler_score</text>
+      <text x="300" y="480" class="field">token_set_score</text>
+      <text x="300" y="494" class="field">confidence_tier CHECK(3)</text>
+      <text x="300" y="508" class="field">status CHECK(2)</text>
+      <text x="300" y="522" class="field">matched_at, reviewed_at</text>
+
+      <!-- assessments -->
+      <rect x="540" y="300" width="240" height="210" rx="4" class="tbl tbl-assess"/>
+      <rect x="540" y="300" width="240" height="28" rx="4" class="tbl-header"/>
+      <text x="550" y="318" class="tbl-name">assessments</text>
+      <text x="700" y="318" class="tbl-stage" fill="#EAB308">ASSESS</text>
+      <text x="550" y="344" class="field field-pk">&#9679; id UUID PK</text>
+      <text x="550" y="360" class="field field-fk">&#8594; match_result_id FK</text>
+      <text x="550" y="374" class="field">assessor_id</text>
+      <text x="550" y="388" class="field">impact_classification CHECK(5)</text>
+      <text x="550" y="402" class="field">action_required CHECK(4)</text>
+      <text x="550" y="416" class="field">reason_code</text>
+      <text x="550" y="430" class="field">notes TEXT</text>
+      <text x="550" y="444" class="field">decision CHECK(3)</text>
+      <text x="550" y="458" class="field">decided_at</text>
+      <text x="550" y="472" class="field">signature_hash</text>
+
+      <!-- notifications -->
+      <rect x="810" y="280" width="230" height="220" rx="4" class="tbl tbl-notify"/>
+      <rect x="810" y="280" width="230" height="28" rx="4" class="tbl-header"/>
+      <text x="820" y="298" class="tbl-name">notifications</text>
+      <text x="965" y="298" class="tbl-stage" fill="#EF4444">NOTIFY</text>
+      <text x="820" y="324" class="field field-pk">&#9679; id UUID PK</text>
+      <text x="820" y="340" class="field field-fk">&#8594; assessment_id FK</text>
+      <text x="820" y="354" class="field field-fk">&#8594; customer_id FK</text>
+      <text x="820" y="368" class="field">template_language</text>
+      <text x="820" y="382" class="field">subject, body_html</text>
+      <text x="820" y="396" class="field">status CHECK(7)</text>
+      <text x="820" y="410" class="field">sent_at, delivered_at</text>
+      <text x="820" y="424" class="field">opened_at, clicked_at</text>
+      <text x="820" y="438" class="field">sla_deadline</text>
+
+      <!-- sales_escalations -->
+      <rect x="810" y="540" width="230" height="170" rx="4" class="tbl tbl-notify"/>
+      <rect x="810" y="540" width="230" height="28" rx="4" class="tbl-header"/>
+      <text x="820" y="558" class="tbl-name">sales_escalations</text>
+      <text x="955" y="558" class="tbl-stage" fill="#EF4444">SALES</text>
+      <text x="820" y="584" class="field field-pk">&#9679; id UUID PK</text>
+      <text x="820" y="600" class="field field-fk">&#8594; notification_id FK</text>
+      <text x="820" y="614" class="field field-fk">&#8594; customer_id FK</text>
+      <text x="820" y="628" class="field">escalation_reason</text>
+      <text x="820" y="642" class="field">opportunity_value NUMERIC</text>
+      <text x="820" y="656" class="field">assigned_to</text>
+      <text x="820" y="670" class="field">status CHECK(3)</text>
+      <text x="820" y="684" class="field">created_at, resolved_at</text>
+
+      <!-- audit_log -->
+      <rect x="290" y="620" width="320" height="160" rx="4" class="tbl tbl-audit"/>
+      <rect x="290" y="620" width="320" height="28" rx="4" class="tbl-header"/>
+      <text x="300" y="638" class="tbl-name">audit_log &mdash; APPEND-ONLY</text>
+      <text x="570" y="638" class="tbl-stage" fill="#A09D95">COMPLY</text>
+      <text x="300" y="664" class="field field-pk">&#9679; id UUID PK</text>
+      <text x="300" y="680" class="field">entity_type, entity_id</text>
+      <text x="300" y="694" class="field">action (created/updated)</text>
+      <text x="300" y="708" class="field">actor (X-User-Id)</text>
+      <text x="300" y="722" class="field">details JSONB (diff)</text>
+      <text x="300" y="736" class="field">ip_address, created_at</text>
+      <text x="300" y="760" class="field" fill="#EF4444" style="font-weight: 600;">REVOKE UPDATE, DELETE</text>
+
+      <!-- FK edges -->
+      <!-- certificates.customer_id -> customers.id -->
+      <path d="M220 270 Q 120 240 120 220" class="fk-line" marker-end="url(#fk-arrow)"/>
+      <!-- cert_standard_links.certificate_id -> certificates.id -->
+      <path d="M130 450 L 130 420" class="fk-line" marker-end="url(#fk-arrow)"/>
+      <!-- match_results.cert_link_id -> cert_standard_links.id -->
+      <path d="M290 480 L 240 500" class="fk-line" marker-end="url(#fk-arrow)"/>
+      <!-- match_results.natos_standard_id -> standards.id -->
+      <path d="M400 350 L 400 280" class="fk-line" marker-end="url(#fk-arrow)"/>
+      <!-- assessments.match_result_id -> match_results.id -->
+      <path d="M540 400 L 510 420" class="fk-line" marker-end="url(#fk-arrow)"/>
+      <!-- notifications.assessment_id -> assessments.id -->
+      <path d="M810 360 L 780 380" class="fk-line" marker-end="url(#fk-arrow)"/>
+      <!-- notifications.customer_id -> customers.id -->
+      <path d="M870 280 Q 870 140 220 140" class="fk-line" marker-end="url(#fk-arrow)"/>
+      <!-- sales_escalations.notification_id -> notifications.id -->
+      <path d="M925 540 L 925 500" class="fk-line" marker-end="url(#fk-arrow)"/>
+      <!-- sales_escalations.customer_id -> customers.id -->
+      <path d="M810 600 Q 700 180 220 170" class="fk-line" marker-end="url(#fk-arrow)"/>
+    </svg>
+  </div>
+
+  <div class="card" style="margin-top: 24px; border-left: 2px solid var(--danger);">
+    <div class="section-label" style="color: var(--danger);">Immutability guarantee</div>
+    <p style="margin-top: 8px; font-size: 13px;">
+      Migration 001 executes <code>REVOKE UPDATE, DELETE ON audit_log FROM veloiq</code>
+      after table creation. The application database role <strong>physically cannot mutate</strong>
+      audit entries after commit. This is the architectural cornerstone for T&Uuml;V
+      non-repudiation &mdash; every mutation is provable post-hoc.
+    </p>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- SECTION 4 — 4-STAGE DATA PIPELINE                                 -->
+<!-- ================================================================ -->
+<section class="page-break">
+  <span class="section-label">04 &mdash; Data Pipeline</span>
+  <h2>Four stages &mdash; ingest, match, assess, notify</h2>
+  <p>
+    Each pipeline stage transforms inputs into auditable outputs. Phase A delivers
+    the foundation tables + audit enforcement. Phases B, C, D add the
+    matching engine, decision workflow, and notification dispatch respectively.
+  </p>
+
+  <div class="diagram">
+    <div class="diagram-title">Pipeline flow &mdash; data transformation &amp; phase delivery</div>
+    <svg viewBox="0 0 1200 480" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#00D492"/>
+        </marker>
+      </defs>
+      <style>
+        .stage-box { fill: #12121e; stroke-width: 1.5; }
+        .stage-1 { stroke: #60a5fa; }
+        .stage-2 { stroke: #00D492; }
+        .stage-3 { stroke: #EAB308; }
+        .stage-4 { stroke: #EF4444; }
+        .stage-5 { stroke: #EF4444; }
+        .stage-num { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; }
+        .stage-title { font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; fill: #EEEAE4; }
+        .stage-meta { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: #A09D95; }
+        .stage-label-sm { font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; }
+        .flow-arrow { stroke: #00D492; stroke-width: 2; fill: none; }
+        .phase-badge { font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; }
+        .tier-decision { font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+      </style>
+
+      <!-- Stage 1: Ingestion -->
+      <rect x="20" y="80" width="200" height="180" rx="4" class="stage-box stage-1"/>
+      <text x="36" y="110" class="stage-num" fill="#60a5fa">01</text>
+      <text x="78" y="110" class="stage-title">Ingestion</text>
+      <text x="36" y="140" class="stage-label-sm" fill="#60a5fa">TABLES</text>
+      <text x="36" y="156" class="stage-meta">customers</text>
+      <text x="36" y="170" class="stage-meta">standards</text>
+      <text x="36" y="184" class="stage-meta">certificates</text>
+      <text x="36" y="198" class="stage-meta">cert_standard_links</text>
+      <text x="36" y="222" class="stage-label-sm" fill="#60a5fa">ACTOR</text>
+      <text x="36" y="238" class="stage-meta">Admin / system importer</text>
+
+      <!-- Stage 2: Matching -->
+      <rect x="250" y="80" width="200" height="180" rx="4" class="stage-box stage-2"/>
+      <text x="266" y="110" class="stage-num" fill="#00D492">02</text>
+      <text x="308" y="110" class="stage-title">Matching</text>
+      <text x="266" y="140" class="stage-label-sm" fill="#00D492">TABLES</text>
+      <text x="266" y="156" class="stage-meta">match_results</text>
+      <text x="266" y="180" class="stage-label-sm" fill="#00D492">ALGOS</text>
+      <text x="266" y="196" class="stage-meta">levenshtein</text>
+      <text x="266" y="210" class="stage-meta">jaro_winkler</text>
+      <text x="266" y="224" class="stage-meta">token_set</text>
+      <text x="266" y="244" class="stage-label-sm" fill="#00D492">OUTPUT</text>
+      <text x="266" y="258" class="stage-meta" fill="#EEEAE4" style="font-weight: 600;">similarity_score + tier</text>
+
+      <!-- Stage 3: Assessment -->
+      <rect x="480" y="80" width="200" height="180" rx="4" class="stage-box stage-3"/>
+      <text x="496" y="110" class="stage-num" fill="#EAB308">03</text>
+      <text x="538" y="110" class="stage-title">Assessment</text>
+      <text x="496" y="140" class="stage-label-sm" fill="#EAB308">TABLES</text>
+      <text x="496" y="156" class="stage-meta">assessments</text>
+      <text x="496" y="180" class="stage-label-sm" fill="#EAB308">ACTOR</text>
+      <text x="496" y="196" class="stage-meta">TCC Expert</text>
+      <text x="496" y="220" class="stage-label-sm" fill="#EAB308">DECISION</text>
+      <text x="496" y="236" class="stage-meta">approved /</text>
+      <text x="496" y="250" class="stage-meta">rejected / escalated</text>
+
+      <!-- Stage 4: Notification -->
+      <rect x="710" y="80" width="200" height="180" rx="4" class="stage-box stage-4"/>
+      <text x="726" y="110" class="stage-num" fill="#EF4444">04</text>
+      <text x="768" y="110" class="stage-title">Notification</text>
+      <text x="726" y="140" class="stage-label-sm" fill="#EF4444">TABLES</text>
+      <text x="726" y="156" class="stage-meta">notifications</text>
+      <text x="726" y="180" class="stage-label-sm" fill="#EF4444">OUTPUTS</text>
+      <text x="726" y="196" class="stage-meta">rendered email HTML</text>
+      <text x="726" y="210" class="stage-meta">delivery tracking</text>
+      <text x="726" y="224" class="stage-meta">SLA countdown</text>
+      <text x="726" y="244" class="stage-label-sm" fill="#EF4444">ACTOR</text>
+      <text x="726" y="258" class="stage-meta">Customer (recipient)</text>
+
+      <!-- Stage 5: Sales -->
+      <rect x="940" y="80" width="200" height="180" rx="4" class="stage-box stage-5"/>
+      <text x="956" y="110" class="stage-num" fill="#EF4444">05</text>
+      <text x="998" y="110" class="stage-title">Sales</text>
+      <text x="956" y="140" class="stage-label-sm" fill="#EF4444">TABLES</text>
+      <text x="956" y="156" class="stage-meta">sales_escalations</text>
+      <text x="956" y="180" class="stage-label-sm" fill="#EF4444">TRIGGER</text>
+      <text x="956" y="196" class="stage-meta">SLA breach /</text>
+      <text x="956" y="210" class="stage-meta">decision=escalated</text>
+      <text x="956" y="234" class="stage-label-sm" fill="#EF4444">ACTOR</text>
+      <text x="956" y="250" class="stage-meta">Sales Rep</text>
+
+      <!-- Flow arrows between stages -->
+      <path d="M220 170 L250 170" class="flow-arrow" marker-end="url(#flow-arrow)"/>
+      <path d="M450 170 L480 170" class="flow-arrow" marker-end="url(#flow-arrow)"/>
+      <path d="M680 170 L710 170" class="flow-arrow" marker-end="url(#flow-arrow)"/>
+      <path d="M910 170 L940 170" class="flow-arrow" marker-end="url(#flow-arrow)"/>
+
+      <!-- Phase delivery band at bottom -->
+      <rect x="20" y="300" width="200" height="44" rx="4" fill="rgba(0,212,146,0.1)" stroke="#00D492"/>
+      <text x="36" y="320" class="phase-badge" fill="#00D492">PHASE A &mdash; LIVE</text>
+      <text x="36" y="335" class="stage-meta">Foundation + audit</text>
+
+      <rect x="250" y="300" width="200" height="44" rx="4" fill="rgba(96,96,96,0.1)" stroke="#606060"/>
+      <text x="266" y="320" class="phase-badge" fill="#606060">PHASE B &mdash; DEFERRED</text>
+      <text x="266" y="335" class="stage-meta">Fuzzy engine</text>
+
+      <rect x="480" y="300" width="200" height="44" rx="4" fill="rgba(96,96,96,0.1)" stroke="#606060"/>
+      <text x="496" y="320" class="phase-badge" fill="#606060">PHASE C &mdash; DEFERRED</text>
+      <text x="496" y="335" class="stage-meta">Decision POST workflow</text>
+
+      <rect x="710" y="300" width="200" height="44" rx="4" fill="rgba(96,96,96,0.1)" stroke="#606060"/>
+      <text x="726" y="320" class="phase-badge" fill="#606060">PHASE D &mdash; DEFERRED</text>
+      <text x="726" y="335" class="stage-meta">Dispatch + SLA</text>
+
+      <rect x="940" y="300" width="200" height="44" rx="4" fill="rgba(96,96,96,0.1)" stroke="#606060"/>
+      <text x="956" y="320" class="phase-badge" fill="#606060">PHASE D &mdash; DEFERRED</text>
+      <text x="956" y="335" class="stage-meta">Escalation logic</text>
+
+      <!-- Confidence tier decision tree branching from Stage 2 -->
+      <text x="20" y="400" class="stage-label-sm" fill="#00D492">CONFIDENCE TIER DECISION (STAGE 02)</text>
+      <rect x="20" y="410" width="260" height="60" rx="4" fill="rgba(0,212,146,0.1)" stroke="#00D492"/>
+      <text x="36" y="430" class="tier-decision" fill="#00D492" style="font-weight: 600;">score &gt; 0.95</text>
+      <text x="36" y="446" class="stage-meta">&rarr; auto_match (no human)</text>
+      <text x="36" y="460" class="stage-meta">proceeds to assessment stage</text>
+
+      <rect x="300" y="410" width="260" height="60" rx="4" fill="rgba(234,179,8,0.1)" stroke="#EAB308"/>
+      <text x="316" y="430" class="tier-decision" fill="#EAB308" style="font-weight: 600;">0.70 &le; score &le; 0.95</text>
+      <text x="316" y="446" class="stage-meta">&rarr; expert_review</text>
+      <text x="316" y="460" class="stage-meta">TCC manual verification</text>
+
+      <rect x="580" y="410" width="260" height="60" rx="4" fill="rgba(239,68,68,0.1)" stroke="#EF4444"/>
+      <text x="596" y="430" class="tier-decision" fill="#EF4444" style="font-weight: 600;">score &lt; 0.70</text>
+      <text x="596" y="446" class="stage-meta">&rarr; manual_triage</text>
+      <text x="596" y="460" class="stage-meta">rework or reject match</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- SECTION 5 — USER JOURNEYS                                         -->
+<!-- ================================================================ -->
+<section class="page-break">
+  <span class="section-label">05 &mdash; User Journeys</span>
+  <h2>Four personas, four flows</h2>
+  <p>
+    Each persona has a primary daily loop through VeloIQ. The TCC Expert and
+    Sales Rep are the most active; the Compliance Officer and Admin access the
+    system on-demand.
+  </p>
+
+  <div class="diagram">
+    <div class="diagram-title">User journeys &mdash; swimlane per persona</div>
+    <svg viewBox="0 0 1200 640" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="j-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#00D492"/>
+        </marker>
+      </defs>
+      <style>
+        .lane-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+        .lane-bg { fill: #0A0A0A; stroke: #1f1f35; stroke-width: 1; }
+        .step-box { fill: #12121e; stroke: #1f1f35; stroke-width: 1; }
+        .step-box.accent { stroke: #00D492; stroke-width: 1.5; }
+        .step-text { font-family: 'DM Sans', sans-serif; font-size: 11px; fill: #EEEAE4; font-weight: 500; }
+        .step-route { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: #00D492; }
+        .journey-arrow { stroke: #00D492; stroke-width: 1.5; fill: none; }
+        .persona-name { font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 700; fill: #EEEAE4; }
+        .persona-role { font-family: 'DM Sans', sans-serif; font-size: 10px; fill: #A09D95; }
+      </style>
+
+      <!-- Lane 1: TCC Expert -->
+      <rect x="20" y="20" width="1160" height="140" rx="4" class="lane-bg"/>
+      <rect x="20" y="20" width="180" height="140" rx="4" fill="#12121e" stroke="#EAB308" stroke-width="1.5"/>
+      <text x="36" y="44" class="lane-label" fill="#EAB308">LANE 01</text>
+      <text x="36" y="70" class="persona-name">TCC Expert</text>
+      <text x="36" y="88" class="persona-role">Dr. M. Weber</text>
+      <text x="36" y="104" class="persona-role">impact assessment</text>
+
+      <rect x="220" y="50" width="140" height="70" rx="4" class="step-box accent"/>
+      <text x="232" y="72" class="step-route">/login</text>
+      <text x="232" y="90" class="step-text">Sign in</text>
+      <text x="232" y="106" class="step-text" style="font-size: 10px; fill: #A09D95;">(mock auth)</text>
+
+      <rect x="380" y="50" width="140" height="70" rx="4" class="step-box"/>
+      <text x="392" y="72" class="step-route">/queue</text>
+      <text x="392" y="90" class="step-text">Browse TCC</text>
+      <text x="392" y="106" class="step-text" style="font-size: 10px; fill: #A09D95;">queue (10 records)</text>
+
+      <rect x="540" y="50" width="160" height="70" rx="4" class="step-box"/>
+      <text x="552" y="72" class="step-route">/assessments/:id</text>
+      <text x="552" y="90" class="step-text">Assessment</text>
+      <text x="552" y="106" class="step-text" style="font-size: 10px; fill: #A09D95;">workspace</text>
+
+      <rect x="720" y="50" width="140" height="70" rx="4" class="step-box"/>
+      <text x="732" y="72" class="step-route">decision</text>
+      <text x="732" y="90" class="step-text">Approve /</text>
+      <text x="732" y="106" class="step-text">Reject</text>
+
+      <rect x="880" y="50" width="140" height="70" rx="4" class="step-box" style="stroke: #A09D95;"/>
+      <text x="892" y="72" class="step-route" style="fill: #A09D95;">audit_log</text>
+      <text x="892" y="90" class="step-text">Audit entry</text>
+      <text x="892" y="106" class="step-text" style="font-size: 10px; fill: #A09D95;">created</text>
+
+      <path d="M360 85 L380 85" class="journey-arrow" marker-end="url(#j-arrow)"/>
+      <path d="M520 85 L540 85" class="journey-arrow" marker-end="url(#j-arrow)"/>
+      <path d="M700 85 L720 85" class="journey-arrow" marker-end="url(#j-arrow)"/>
+      <path d="M860 85 L880 85" class="journey-arrow" marker-end="url(#j-arrow)"/>
+
+      <!-- Lane 2: Sales Rep -->
+      <rect x="20" y="180" width="1160" height="140" rx="4" class="lane-bg"/>
+      <rect x="20" y="180" width="180" height="140" rx="4" fill="#12121e" stroke="#EF4444" stroke-width="1.5"/>
+      <text x="36" y="204" class="lane-label" fill="#EF4444">LANE 02</text>
+      <text x="36" y="230" class="persona-name">Sales Rep</text>
+      <text x="36" y="248" class="persona-role">Markus Hoffmann</text>
+      <text x="36" y="264" class="persona-role">revenue at risk</text>
+
+      <rect x="220" y="210" width="140" height="70" rx="4" class="step-box accent"/>
+      <text x="232" y="232" class="step-route">/pipeline</text>
+      <text x="232" y="250" class="step-text">Sales pipeline</text>
+      <text x="232" y="266" class="step-text" style="font-size: 10px; fill: #A09D95;">dashboard</text>
+
+      <rect x="380" y="210" width="140" height="70" rx="4" class="step-box"/>
+      <text x="392" y="232" class="step-route">row click</text>
+      <text x="392" y="250" class="step-text">Open escalation</text>
+      <text x="392" y="266" class="step-text" style="font-size: 10px; fill: #A09D95;">dialog</text>
+
+      <rect x="540" y="210" width="160" height="70" rx="4" class="step-box"/>
+      <text x="552" y="232" class="step-route">form</text>
+      <text x="552" y="250" class="step-text">Re-assign</text>
+      <text x="552" y="266" class="step-text" style="font-size: 10px; fill: #A09D95;">+ change status</text>
+
+      <rect x="720" y="210" width="140" height="70" rx="4" class="step-box"/>
+      <text x="732" y="232" class="step-route">PATCH /escalations/:id</text>
+      <text x="732" y="250" class="step-text">Save</text>
+      <text x="732" y="266" class="step-text" style="font-size: 10px; fill: #A09D95;">(mutation)</text>
+
+      <rect x="880" y="210" width="140" height="70" rx="4" class="step-box" style="stroke: #A09D95;"/>
+      <text x="892" y="232" class="step-route" style="fill: #A09D95;">audit_log</text>
+      <text x="892" y="250" class="step-text">Audit entry</text>
+      <text x="892" y="266" class="step-text" style="font-size: 10px; fill: #A09D95;">with diff</text>
+
+      <path d="M360 245 L380 245" class="journey-arrow" marker-end="url(#j-arrow)"/>
+      <path d="M520 245 L540 245" class="journey-arrow" marker-end="url(#j-arrow)"/>
+      <path d="M700 245 L720 245" class="journey-arrow" marker-end="url(#j-arrow)"/>
+      <path d="M860 245 L880 245" class="journey-arrow" marker-end="url(#j-arrow)"/>
+
+      <!-- Lane 3: Compliance Officer -->
+      <rect x="20" y="340" width="1160" height="140" rx="4" class="lane-bg"/>
+      <rect x="20" y="340" width="180" height="140" rx="4" fill="#12121e" stroke="#A09D95" stroke-width="1.5"/>
+      <text x="36" y="364" class="lane-label" fill="#A09D95">LANE 03</text>
+      <text x="36" y="390" class="persona-name">Compliance</text>
+      <text x="36" y="408" class="persona-role">audit forensics</text>
+      <text x="36" y="424" class="persona-role">ad-hoc / scheduled</text>
+
+      <rect x="220" y="370" width="140" height="70" rx="4" class="step-box accent"/>
+      <text x="232" y="392" class="step-route">/audit</text>
+      <text x="232" y="410" class="step-text">Audit log</text>
+      <text x="232" y="426" class="step-text" style="font-size: 10px; fill: #A09D95;">immutable trail</text>
+
+      <rect x="380" y="370" width="140" height="70" rx="4" class="step-box"/>
+      <text x="392" y="392" class="step-route">filter</text>
+      <text x="392" y="410" class="step-text">Entity type +</text>
+      <text x="392" y="426" class="step-text">actor filter</text>
+
+      <rect x="540" y="370" width="160" height="70" rx="4" class="step-box"/>
+      <text x="552" y="392" class="step-route">row click</text>
+      <text x="552" y="410" class="step-text">Open JSON</text>
+      <text x="552" y="426" class="step-text" style="font-size: 10px; fill: #A09D95;">detail dialog</text>
+
+      <rect x="720" y="370" width="140" height="70" rx="4" class="step-box"/>
+      <text x="732" y="392" class="step-route">diff inspect</text>
+      <text x="732" y="410" class="step-text">Review old/new</text>
+      <text x="732" y="426" class="step-text" style="font-size: 10px; fill: #A09D95;">field changes</text>
+
+      <rect x="880" y="370" width="140" height="70" rx="4" class="step-box"/>
+      <text x="892" y="392" class="step-route">report</text>
+      <text x="892" y="410" class="step-text">Export /</text>
+      <text x="892" y="426" class="step-text">escalate</text>
+
+      <path d="M360 405 L380 405" class="journey-arrow" marker-end="url(#j-arrow)"/>
+      <path d="M520 405 L540 405" class="journey-arrow" marker-end="url(#j-arrow)"/>
+      <path d="M700 405 L720 405" class="journey-arrow" marker-end="url(#j-arrow)"/>
+      <path d="M860 405 L880 405" class="journey-arrow" marker-end="url(#j-arrow)"/>
+
+      <!-- Lane 4: Admin -->
+      <rect x="20" y="500" width="1160" height="140" rx="4" class="lane-bg"/>
+      <rect x="20" y="500" width="180" height="140" rx="4" fill="#12121e" stroke="#60a5fa" stroke-width="1.5"/>
+      <text x="36" y="524" class="lane-label" fill="#60a5fa">LANE 04</text>
+      <text x="36" y="550" class="persona-name">Admin</text>
+      <text x="36" y="568" class="persona-role">operations</text>
+      <text x="36" y="584" class="persona-role">customer health</text>
+
+      <rect x="220" y="530" width="140" height="70" rx="4" class="step-box accent"/>
+      <text x="232" y="552" class="step-route">/ingestion</text>
+      <text x="232" y="570" class="step-text">Ingestion</text>
+      <text x="232" y="586" class="step-text" style="font-size: 10px; fill: #A09D95;">monitor</text>
+
+      <rect x="380" y="530" width="140" height="70" rx="4" class="step-box"/>
+      <text x="392" y="552" class="step-route">verify</text>
+      <text x="392" y="570" class="step-text">Stage health</text>
+      <text x="392" y="586" class="step-text" style="font-size: 10px; fill: #A09D95;">published/withdrawn</text>
+
+      <rect x="540" y="530" width="160" height="70" rx="4" class="step-box"/>
+      <text x="552" y="552" class="step-route">/customers</text>
+      <text x="552" y="570" class="step-text">Customer list</text>
+      <text x="552" y="586" class="step-text" style="font-size: 10px; fill: #A09D95;">search + filter</text>
+
+      <rect x="720" y="530" width="140" height="70" rx="4" class="step-box"/>
+      <text x="732" y="552" class="step-route">/customers/:id</text>
+      <text x="732" y="570" class="step-text">360&deg; view</text>
+      <text x="732" y="586" class="step-text" style="font-size: 10px; fill: #A09D95;">certs + escalations</text>
+
+      <rect x="880" y="530" width="140" height="70" rx="4" class="step-box"/>
+      <text x="892" y="552" class="step-route">drill-down</text>
+      <text x="892" y="570" class="step-text">Review</text>
+      <text x="892" y="586" class="step-text" style="font-size: 10px; fill: #A09D95;">certificate portfolio</text>
+
+      <path d="M360 565 L380 565" class="journey-arrow" marker-end="url(#j-arrow)"/>
+      <path d="M520 565 L540 565" class="journey-arrow" marker-end="url(#j-arrow)"/>
+      <path d="M700 565 L720 565" class="journey-arrow" marker-end="url(#j-arrow)"/>
+      <path d="M860 565 L880 565" class="journey-arrow" marker-end="url(#j-arrow)"/>
+    </svg>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- SECTION 6 — SCREEN INVENTORY (12 pages)                           -->
+<!-- ================================================================ -->
+<section class="page-break">
+  <span class="section-label">06 &mdash; Screen Inventory</span>
+  <h2>Twelve screens</h2>
+  <p>
+    VeloIQ exposes twelve routes across the four pipeline stages. Each screen
+    is paired with its live API sources and the primary actor who depends on it.
+  </p>
+
+  <!-- Login -->
+  <div class="screenshot-wrap" style="margin-top: 32px;">
+    <h3>Login</h3>
+    <p>Mock-auth sign-in. Three seeded TCC expert identities are available as one-click demo buttons. The selected identity is stored in <code>localStorage</code> and injected as <code>X-User-Id</code> on every API request for audit attribution.</p>
+    <img src="assets/screenshots/login.png" alt="Login page" class="screenshot">
+    <div class="screenshot-caption">
+      <span class="route">GET /login</span>
+      <span>ACTOR: all users &middot; DATA: none</span>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="screenshot-wrap">
+    <h3>System Dashboard</h3>
+    <p>Pipeline-wide throughput KPIs with per-stage record counts. Each KPI card and stage row is a clickable link that deep-links into the matching list view.</p>
+    <img src="assets/screenshots/dashboard.png" alt="Dashboard" class="screenshot">
+    <div class="callouts">
+      <ol>
+        <li>KPI cards &mdash; click any to jump into that resource&rsquo;s list view</li>
+        <li>Pipeline health panel shows records per stage (01&ndash;04)</li>
+        <li>Escalations open card deep-links to /pipeline</li>
+        <li>Certificates-tracked surfaces as a secondary indicator under escalations</li>
+      </ol>
+    </div>
+    <div class="screenshot-caption">
+      <span class="route">GET /</span>
+      <span>ACTOR: all &middot; DATA: 6 resource counts (pagination.total)</span>
+    </div>
+  </div>
+
+  <!-- TCC Queue -->
+  <div class="screenshot-wrap">
+    <h3>TCC Queue</h3>
+    <p>Assessor work queue. Filterable by impact classification, decision, and assessor. Each row shows the assessor's decision, action required, reason code, decision timestamp, and a short cryptographic signature hash for integrity verification.</p>
+    <img src="assets/screenshots/queue.png" alt="TCC Queue" class="screenshot">
+    <div class="callouts">
+      <ol>
+        <li>Filter bar &mdash; Impact / Decision / Assessor (with autocomplete=off)</li>
+        <li>Impact classification badge colour-coded (safety_critical in red)</li>
+        <li>Reason code in RC-MAJOR-TECHNICAL format</li>
+        <li>Signature hash (first 8 chars) proves decision cryptographic integrity</li>
+      </ol>
+    </div>
+    <div class="screenshot-caption">
+      <span class="route">GET /queue</span>
+      <span>ACTOR: TCC Expert &middot; DATA: /api/v1/assessments</span>
+    </div>
+  </div>
+
+  <!-- Assessment Workspace -->
+  <div class="screenshot-wrap">
+    <h3>Assessment Workspace</h3>
+    <p>Detailed assessment view with clause delta comparison (year-over-year diff), impact summary metrics, and a decision form. In Phase A the Approve/Reject buttons show a toast only; in Phase C they POST a persistent decision.</p>
+    <img src="assets/screenshots/assessment.png" alt="Assessment Workspace" class="screenshot">
+    <div class="callouts">
+      <ol>
+        <li>Clause delta panel shows 2018 &rarr; 2023 diffs with MODIFIED/ADDED tags</li>
+        <li>Impact summary KPIs: affected certs, customers, deltas, priority</li>
+        <li>Decision form: impact classification, action, reason code, notes</li>
+        <li>Approve / Reject buttons (Phase A: toast only; Phase C: persistent)</li>
+      </ol>
+    </div>
+    <div class="screenshot-caption">
+      <span class="route">GET /assessments/:id</span>
+      <span>ACTOR: TCC Expert &middot; DATA: /api/v1/assessments/:id</span>
+    </div>
+  </div>
+
+  <!-- Customers list -->
+  <div class="screenshot-wrap">
+    <h3>Customer Directory</h3>
+    <p>Paginated customer table sorted by country then company name (client-side secondary sort). Country and sales area filters are URL-backed. Click any row to open the Customer 360 view.</p>
+    <img src="assets/screenshots/customers.png" alt="Customer list" class="screenshot">
+    <div class="screenshot-caption">
+      <span class="route">GET /customers</span>
+      <span>ACTOR: Admin &middot; DATA: /api/v1/customers (10 seed records)</span>
+    </div>
+  </div>
+
+  <!-- Customer 360 -->
+  <div class="screenshot-wrap">
+    <h3>Customer 360&deg;</h3>
+    <p>Single-company deep-dive: identity card, portfolio KPIs (active certs / expiring / open escalations / active notifications), and full certificate inventory.</p>
+    <img src="assets/screenshots/customer360.png" alt="Customer 360" class="screenshot">
+    <div class="callouts">
+      <ol>
+        <li>Header: company name + customer number (CUST-NNNN)</li>
+        <li>Identity panel: country, sales area, language, primary contact</li>
+        <li>Portfolio KPIs aggregate data from 4 different endpoints</li>
+        <li>Certificate portfolio table with status badges</li>
+      </ol>
+    </div>
+    <div class="screenshot-caption">
+      <span class="route">GET /customers/:id</span>
+      <span>ACTOR: Admin / Sales &middot; DATA: 4 endpoints joined</span>
+    </div>
+  </div>
+
+  <!-- Match Queue -->
+  <div class="screenshot-wrap">
+    <h3>Match Queue</h3>
+    <p>Fuzzy-match triage view showing the confidence distribution (auto_match / expert_review / manual_triage / pending). Algorithm scores for each candidate pair are shown side-by-side for transparency.</p>
+    <img src="assets/screenshots/matches.png" alt="Match Queue" class="screenshot">
+    <div class="callouts">
+      <ol>
+        <li>Confidence distribution KPIs across 3 tiers + pending</li>
+        <li>Composite similarity pill colour-coded by tier</li>
+        <li>4 raw algorithm scores: levenshtein, jaro-winkler, token set</li>
+        <li>Status badge: pending (yellow) / reviewed (accent)</li>
+      </ol>
+    </div>
+    <div class="screenshot-caption">
+      <span class="route">GET /matches</span>
+      <span>ACTOR: TCC Expert &middot; DATA: /api/v1/matches</span>
+    </div>
+  </div>
+
+  <!-- Match Forensic -->
+  <div class="screenshot-wrap">
+    <h3>Match Forensic</h3>
+    <p>Per-match trace view showing how raw strings were normalised, the four fuzzy-algorithm scores individually, and provenance (matched_at / reviewed_at / tier).</p>
+    <img src="assets/screenshots/match-forensic.png" alt="Match Forensic" class="screenshot">
+    <div class="callouts">
+      <ol>
+        <li>Normalization trace: raw NATOS &harr; raw SAP inputs with transforms</li>
+        <li>Algorithm scores: composite, levenshtein, jaro-winkler, token set</li>
+        <li>Each score annotated with what it measures + why it matters</li>
+        <li>Provenance band: matched_at, reviewed_at, confidence tier</li>
+      </ol>
+    </div>
+    <div class="screenshot-caption">
+      <span class="route">GET /matches/:id</span>
+      <span>ACTOR: TCC Expert &middot; DATA: /api/v1/matches/:id + /standards/:id</span>
+    </div>
+  </div>
+
+  <!-- Notification Center -->
+  <div class="screenshot-wrap">
+    <h3>Notification Center</h3>
+    <p>Customer outreach delivery funnel: sent &rarr; delivered &rarr; opened &rarr; clicked, plus bounced / breached tallies. Each notification row shows subject, customer, language, status, and SLA countdown.</p>
+    <img src="assets/screenshots/notifications.png" alt="Notification Center" class="screenshot">
+    <div class="callouts">
+      <ol>
+        <li>Delivery funnel: 6 KPI cards for each notification status</li>
+        <li>Status filter + customer UUID filter</li>
+        <li>Template language column (EN / DE / ZH)</li>
+        <li>Status badge: breached (red) signals SLA violation</li>
+      </ol>
+    </div>
+    <div class="screenshot-caption">
+      <span class="route">GET /notifications</span>
+      <span>ACTOR: TCC Expert &middot; DATA: /api/v1/notifications</span>
+    </div>
+  </div>
+
+  <!-- Sales Pipeline -->
+  <div class="screenshot-wrap">
+    <h3>Sales Pipeline</h3>
+    <p>Revenue-at-risk dashboard: open / contacted / resolved counts plus total opportunity value. Each escalation row has a Manage button opening a PATCH mutation dialog for assignee + status.</p>
+    <img src="assets/screenshots/pipeline.png" alt="Sales Pipeline" class="screenshot">
+    <div class="screenshot-caption">
+      <span class="route">GET /pipeline</span>
+      <span>ACTOR: Sales Rep &middot; DATA: /api/v1/escalations (+ PATCH)</span>
+    </div>
+  </div>
+
+  <!-- Sales Pipeline dialog -->
+  <div class="screenshot-wrap">
+    <h3>Manage Escalation (dialog)</h3>
+    <p>Modal dialog with PATCH mutation form. Saving fires <code>PATCH /escalations/:id</code> which writes a paired audit entry with old/new field diff.</p>
+    <img src="assets/screenshots/pipeline-dialog.png" alt="Escalation dialog" class="screenshot">
+    <div class="callouts">
+      <ol>
+        <li>Escalation reason + entity ID shown in header</li>
+        <li>Status dropdown: open / contacted / resolved</li>
+        <li>Assignee text input (prefilled from current assignee)</li>
+        <li>Save fires PATCH mutation + creates audit_log entry</li>
+      </ol>
+    </div>
+    <div class="screenshot-caption">
+      <span class="route">PATCH /escalations/:id</span>
+      <span>ACTOR: Sales Rep &middot; MUTATION: status, assigned_to</span>
+    </div>
+  </div>
+
+  <!-- Ingestion Monitor -->
+  <div class="screenshot-wrap">
+    <h3>Ingestion Monitor</h3>
+    <p>Standards catalog with ISO stage codes: Published (60) / Draft (10) / Withdrawn (90). Superseded counts derive from non-null <code>replaced_by</code>. Filters on stage, committee, and base number.</p>
+    <img src="assets/screenshots/ingestion.png" alt="Ingestion Monitor" class="screenshot">
+    <div class="callouts">
+      <ol>
+        <li>Catalog summary: Published / Superseded / Withdrawn / Latest ingested</li>
+        <li>Filters: Stage dropdown + Committee + Base number text</li>
+        <li>Stage column uses real ISO codes labelled as Published/Draft/Withdrawn</li>
+        <li>Replaced-by column links superseded entries to successors</li>
+      </ol>
+    </div>
+    <div class="screenshot-caption">
+      <span class="route">GET /ingestion</span>
+      <span>ACTOR: Admin &middot; DATA: /api/v1/standards</span>
+    </div>
+  </div>
+
+  <!-- Audit Log -->
+  <div class="screenshot-wrap">
+    <h3>Audit Log</h3>
+    <p>Immutable compliance trail. Every mutation in the system produces a row here with actor, action, entity, and a JSON diff of changed fields. Filters on entity type, action, actor, entity ID.</p>
+    <img src="assets/screenshots/audit.png" alt="Audit Log" class="screenshot">
+    <div class="screenshot-caption">
+      <span class="route">GET /audit</span>
+      <span>ACTOR: Compliance Officer &middot; DATA: /api/v1/audit</span>
+    </div>
+  </div>
+
+  <!-- Audit Log dialog -->
+  <div class="screenshot-wrap">
+    <h3>Audit Entry (detail dialog)</h3>
+    <p>JSON detail view showing the full audit entry including old/new field diffs, escalation reason, actor, and IP address. Rendered via monospace <code>&lt;pre&gt;</code> with syntax-preserved indentation.</p>
+    <img src="assets/screenshots/audit-dialog.png" alt="Audit detail" class="screenshot">
+    <div class="callouts">
+      <ol>
+        <li>Dialog header: entity_type + entity_id (full UUID)</li>
+        <li>Metadata strip: actor, created_at, ip_address</li>
+        <li>Full JSON diff: old/new values per changed_fields</li>
+        <li>Escalation reason preserved alongside diff for context</li>
+      </ol>
+    </div>
+    <div class="screenshot-caption">
+      <span class="route">GET /audit/:id</span>
+      <span>ACTOR: Compliance Officer &middot; DATA: /api/v1/audit/:id</span>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- SECTION 7 — API REFERENCE                                         -->
+<!-- ================================================================ -->
+<section class="page-break">
+  <span class="section-label">07 &mdash; API Reference</span>
+  <h2>23 REST endpoints</h2>
+  <p>
+    All endpoints live under <code>/api/v1</code>. Mutations (POST/PATCH) require
+    the <code>X-User-Id</code> header. Reads are open. Every mutation writes a
+    paired audit_log entry in the same transaction.
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 70px;">Method</th>
+        <th>Path</th>
+        <th>Purpose</th>
+        <th style="width: 60px;">Type</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="badge info">GET</span></td><td><code>/standards</code></td><td>List standards (status, committee, base_number filters)</td><td><span class="badge muted">READ</span></td></tr>
+      <tr><td><span class="badge info">GET</span></td><td><code>/standards/{id}</code></td><td>Retrieve single standard</td><td><span class="badge muted">READ</span></td></tr>
+      <tr><td><span class="badge accent">POST</span></td><td><code>/standards</code></td><td>Ingest new standard + audit entry</td><td><span class="badge warn">MUT</span></td></tr>
+      <tr><td><span class="badge accent">PATCH</span></td><td><code>/standards/{id}</code></td><td>Update standard fields + audit diff</td><td><span class="badge warn">MUT</span></td></tr>
+      <tr><td><span class="badge info">GET</span></td><td><code>/customers</code></td><td>List customers (country, sales_area)</td><td><span class="badge muted">READ</span></td></tr>
+      <tr><td><span class="badge info">GET</span></td><td><code>/customers/{id}</code></td><td>Retrieve single customer</td><td><span class="badge muted">READ</span></td></tr>
+      <tr><td><span class="badge accent">POST</span></td><td><code>/customers</code></td><td>Create customer + audit</td><td><span class="badge warn">MUT</span></td></tr>
+      <tr><td><span class="badge accent">PATCH</span></td><td><code>/customers/{id}</code></td><td>Update contact info + audit diff</td><td><span class="badge warn">MUT</span></td></tr>
+      <tr><td><span class="badge info">GET</span></td><td><code>/certificates</code></td><td>List certs (customer_id, status)</td><td><span class="badge muted">READ</span></td></tr>
+      <tr><td><span class="badge info">GET</span></td><td><code>/certificates/{id}</code></td><td>Retrieve single certificate</td><td><span class="badge muted">READ</span></td></tr>
+      <tr><td><span class="badge accent">POST</span></td><td><code>/certificates</code></td><td>Create certificate + audit</td><td><span class="badge warn">MUT</span></td></tr>
+      <tr><td><span class="badge accent">PATCH</span></td><td><code>/certificates/{id}</code></td><td>Update status/dates + audit diff</td><td><span class="badge warn">MUT</span></td></tr>
+      <tr><td><span class="badge info">GET</span></td><td><code>/matches</code></td><td>List matches (confidence_tier, status)</td><td><span class="badge muted">READ</span></td></tr>
+      <tr><td><span class="badge info">GET</span></td><td><code>/matches/{id}</code></td><td>Retrieve match with algo scores</td><td><span class="badge muted">READ</span></td></tr>
+      <tr><td><span class="badge info">GET</span></td><td><code>/assessments</code></td><td>List assessments (assessor_id, decision, impact)</td><td><span class="badge muted">READ</span></td></tr>
+      <tr><td><span class="badge info">GET</span></td><td><code>/assessments/{id}</code></td><td>Retrieve single assessment</td><td><span class="badge muted">READ</span></td></tr>
+      <tr><td><span class="badge info">GET</span></td><td><code>/notifications</code></td><td>List notifications (customer_id, status)</td><td><span class="badge muted">READ</span></td></tr>
+      <tr><td><span class="badge info">GET</span></td><td><code>/notifications/{id}</code></td><td>Retrieve single notification</td><td><span class="badge muted">READ</span></td></tr>
+      <tr><td><span class="badge info">GET</span></td><td><code>/escalations</code></td><td>List escalations (status, customer_id, assigned_to)</td><td><span class="badge muted">READ</span></td></tr>
+      <tr><td><span class="badge info">GET</span></td><td><code>/escalations/{id}</code></td><td>Retrieve single escalation</td><td><span class="badge muted">READ</span></td></tr>
+      <tr><td><span class="badge accent">PATCH</span></td><td><code>/escalations/{id}</code></td><td>Update status/assignee + audit diff</td><td><span class="badge warn">MUT</span></td></tr>
+      <tr><td><span class="badge info">GET</span></td><td><code>/audit</code></td><td>List audit entries (filters on entity, actor, action, date)</td><td><span class="badge muted">READ</span></td></tr>
+      <tr><td><span class="badge info">GET</span></td><td><code>/audit/{id}</code></td><td>Retrieve single audit entry</td><td><span class="badge muted">READ</span></td></tr>
+    </tbody>
+  </table>
+
+  <p style="margin-top: 24px; font-size: 12px; color: var(--text-muted);">
+    <strong>Totals:</strong> 23 endpoints &middot; 8 routers &middot;
+    9 mutations (4 POST, 5 PATCH) &middot; 14 reads.
+    No DELETE endpoints exposed &mdash; data is never removed, only superseded via status updates.
+  </p>
+</section>
+
+<!-- ================================================================ -->
+<!-- SECTION 8 — AUDIT ENFORCEMENT PATTERN                             -->
+<!-- ================================================================ -->
+<section class="page-break">
+  <span class="section-label">08 &mdash; Audit Enforcement</span>
+  <h2>One transaction, two rows</h2>
+  <p>
+    Every mutation writes two rows atomically: the entity change and its audit entry.
+    If the audit write fails, the entity change rolls back. The application database
+    role cannot <code>UPDATE</code> or <code>DELETE</code> audit entries post-commit.
+  </p>
+
+  <div class="diagram">
+    <div class="diagram-title">Audit sequence &mdash; atomic mutation + audit write</div>
+    <svg viewBox="0 0 1000 460" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="seq-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#00D492"/>
+        </marker>
+      </defs>
+      <style>
+        .participant { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700; fill: #EEEAE4; }
+        .participant-role { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: #A09D95; }
+        .participant-box { fill: #12121e; stroke: #1f1f35; stroke-width: 1; }
+        .lifeline { stroke: #1f1f35; stroke-width: 1; stroke-dasharray: 3 4; }
+        .msg-line { stroke: #00D492; stroke-width: 1.5; fill: none; }
+        .msg-line.ret { stroke: #A09D95; stroke-dasharray: 3 3; }
+        .msg-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; fill: #EEEAE4; font-weight: 500; }
+        .msg-note { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: #A09D95; }
+        .tx-bracket { stroke: #00D492; stroke-width: 2; fill: none; }
+        .tx-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; fill: #00D492; font-weight: 600; letter-spacing: 0.05em; }
+      </style>
+
+      <!-- Participant headers -->
+      <rect x="20" y="20" width="140" height="50" rx="4" class="participant-box"/>
+      <text x="34" y="44" class="participant">Client</text>
+      <text x="34" y="60" class="participant-role">browser / curl</text>
+
+      <rect x="200" y="20" width="140" height="50" rx="4" class="participant-box"/>
+      <text x="214" y="44" class="participant">Router</text>
+      <text x="214" y="60" class="participant-role">FastAPI layer</text>
+
+      <rect x="380" y="20" width="140" height="50" rx="4" class="participant-box"/>
+      <text x="394" y="44" class="participant">Service</text>
+      <text x="394" y="60" class="participant-role">mutation logic</text>
+
+      <rect x="560" y="20" width="140" height="50" rx="4" class="participant-box"/>
+      <text x="574" y="44" class="participant">Entity table</text>
+      <text x="574" y="60" class="participant-role">PostgreSQL</text>
+
+      <rect x="740" y="20" width="160" height="50" rx="4" class="participant-box" style="stroke: #EF4444;"/>
+      <text x="754" y="44" class="participant">audit_log</text>
+      <text x="754" y="60" class="participant-role" fill="#EF4444">APPEND-ONLY</text>
+
+      <!-- Lifelines -->
+      <line x1="90" y1="70" x2="90" y2="420" class="lifeline"/>
+      <line x1="270" y1="70" x2="270" y2="420" class="lifeline"/>
+      <line x1="450" y1="70" x2="450" y2="420" class="lifeline"/>
+      <line x1="630" y1="70" x2="630" y2="420" class="lifeline"/>
+      <line x1="820" y1="70" x2="820" y2="420" class="lifeline"/>
+
+      <!-- Transaction bracket -->
+      <rect x="360" y="130" width="560" height="210" rx="4" fill="rgba(0,212,146,0.05)" stroke="#00D492" stroke-width="1" stroke-dasharray="4 3"/>
+      <text x="370" y="152" class="tx-label">BEGIN TRANSACTION (service.create_*)</text>
+
+      <!-- Messages -->
+      <path d="M90 100 L270 100" class="msg-line" marker-end="url(#seq-arrow)"/>
+      <text x="100" y="94" class="msg-label">PATCH /escalations/:id</text>
+      <text x="100" y="112" class="msg-note">X-User-Id: Dr. M. Weber</text>
+
+      <path d="M270 170 L450 170" class="msg-line" marker-end="url(#seq-arrow)"/>
+      <text x="280" y="164" class="msg-label">update_escalation(payload, actor)</text>
+
+      <path d="M450 200 L630 200" class="msg-line" marker-end="url(#seq-arrow)"/>
+      <text x="460" y="194" class="msg-label">db.get(Entity, id)</text>
+
+      <path d="M630 220 L450 220" class="msg-line ret" marker-end="url(#seq-arrow)" style="stroke: #A09D95;"/>
+      <text x="460" y="236" class="msg-note">entity row (old values)</text>
+
+      <path d="M450 260 L630 260" class="msg-line" marker-end="url(#seq-arrow)"/>
+      <text x="460" y="254" class="msg-label">setattr(entity, field, new_val)</text>
+      <text x="460" y="272" class="msg-note">db.flush() &mdash; stage UPDATE</text>
+
+      <path d="M450 310 L820 310" class="msg-line" marker-end="url(#seq-arrow)"/>
+      <text x="460" y="304" class="msg-label">write_audit_entry(entity, action, actor, details)</text>
+      <text x="460" y="322" class="msg-note">diff of old/new captured in details JSONB</text>
+
+      <!-- Commit bracket end -->
+      <text x="370" y="358" class="tx-label">db.commit() &mdash; ATOMIC: both rows or neither</text>
+
+      <path d="M270 390 L90 390" class="msg-line ret" marker-end="url(#seq-arrow)" style="stroke: #A09D95;"/>
+      <text x="100" y="384" class="msg-note" fill="#EEEAE4">200 OK + updated entity JSON</text>
+    </svg>
+  </div>
+
+  <h3 style="margin-top: 32px;">Reference implementation</h3>
+  <p style="font-size: 13px;">Extract from <code>backend/app/services/certificates_service.py:24-59</code> &mdash; the canonical pattern every mutation service follows:</p>
+
+  <pre class="code"><span class="k">def</span> create_certificate(
+    db: Session,
+    payload: CertificateCreate,
+    actor: str,
+) -&gt; Certificate:
+    <span class="c">&quot;&quot;&quot;Create a Certificate and write a paired audit_log entry.&quot;&quot;&quot;</span>
+    cert = Certificate(
+        id=uuid4(),
+        certificate_number=payload.certificate_number,
+        customer_id=payload.customer_id,
+        product_description=payload.product_description,
+        status=payload.status,
+        issue_date=payload.issue_date,
+        expiry_date=payload.expiry_date,
+    )
+    db.add(cert)
+    db.flush()
+
+<span class="highlight">    write_audit_entry(
+        db,
+        entity_type=<span class="s">&quot;certificate&quot;</span>,
+        entity_id=cert.id,
+        action=<span class="s">&quot;created&quot;</span>,
+        actor=actor,
+        details={
+            <span class="s">&quot;certificate_number&quot;</span>: cert.certificate_number,
+            <span class="s">&quot;customer_id&quot;</span>: <span class="k">str</span>(cert.customer_id),
+            <span class="s">&quot;status&quot;</span>: cert.status,
+            <span class="s">&quot;issue_date&quot;</span>: cert.issue_date.isoformat(),
+            <span class="s">&quot;expiry_date&quot;</span>: cert.expiry_date.isoformat(),
+        },
+    )</span>
+
+    db.commit()
+    db.refresh(cert)
+    <span class="k">return</span> cert</pre>
+
+  <div class="grid-2" style="margin-top: 32px;">
+    <div class="card" style="border-left: 2px solid var(--accent);">
+      <div class="section-label">Atomicity</div>
+      <p style="font-size: 13px; margin-top: 4px;">
+        Both INSERT (entity) and INSERT (audit_log) execute in the same
+        <code>db.commit()</code>. If either fails, the transaction rolls
+        back and no rows are written. The pairing is guaranteed at the
+        database level, not just at application level.
+      </p>
+    </div>
+    <div class="card" style="border-left: 2px solid var(--danger);">
+      <div class="section-label" style="color: var(--danger);">Immutability</div>
+      <p style="font-size: 13px; margin-top: 4px;">
+        Migration 001 executes
+        <code>REVOKE UPDATE, DELETE ON audit_log FROM veloiq</code>. The
+        application role owns audit entries only in their create phase.
+        Once committed, no SQL executed by the application can alter them.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<!-- FOOTER                                                             -->
+<!-- ================================================================ -->
+<section style="border-top: 1px solid var(--border); padding-top: 32px; margin-top: 64px; margin-bottom: 0;">
+  <div style="display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase;">
+    <span>VeloIQ &middot; T&Uuml;V Rheinland Standards Automation POC</span>
+    <span>v0.1.0 Phase A &middot; Architecture Report</span>
+  </div>
+</section>
+
+</body>
+</html>
