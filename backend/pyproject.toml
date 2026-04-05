@@ -13,6 +13,7 @@ ignore = ["E501"]  # line length handled by black
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "tests/*" = ["B008"]  # FastAPI Depends in test fixtures
+"app/routers/*" = ["B008"]  # FastAPI Depends in route handlers
 
 [tool.mypy]
 python_version = "3.12"
