@@ -16,7 +16,7 @@ def _serialize(value: object) -> object:
     """Coerce non-JSON-native values (UUID, date) to strings for audit details."""
     if isinstance(value, date):
         return value.isoformat()
-    if hasattr(value, "hex"):  # UUID
+    if isinstance(value, UUID):
         return str(value)
     return value
 

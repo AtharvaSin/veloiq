@@ -21,9 +21,16 @@ class Base(DeclarativeBase):
 
 
 def get_db() -> Generator[Session, None, None]:
-    """FastAPI dependency that yields a database session."""
+    """FastAPI dependency that yields a database session.
+
+    If an exception propagates out of the request handler, the session's
+    pending transaction is explicitly rolled back before the session is closed.
+    """
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()

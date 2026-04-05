@@ -24,8 +24,8 @@ services:
       dockerfile: Dockerfile
     container_name: veloiq-backend
     environment:
-      DATABASE_URL: postgresql://veloiq:veloiq_dev_password@postgres:5432/veloiq
-      TEST_DATABASE_URL: postgresql://veloiq:veloiq_dev_password@postgres:5432/veloiq_test
+      DATABASE_URL: postgresql://${POSTGRES_USER:-veloiq}:${POSTGRES_PASSWORD:-veloiq_dev_password}@postgres:5432/${POSTGRES_DB:-veloiq}
+      TEST_DATABASE_URL: postgresql://${POSTGRES_USER:-veloiq}:${POSTGRES_PASSWORD:-veloiq_dev_password}@postgres:5432/${POSTGRES_DB:-veloiq}_test
       API_V1_PREFIX: /api/v1
       CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000"]'
       FAKER_SEED: "42"
