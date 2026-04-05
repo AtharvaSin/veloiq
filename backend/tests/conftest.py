@@ -35,8 +35,10 @@ def db_connection(test_engine: Engine) -> Generator[Connection, None, None]:
     connection = test_engine.connect()
     transaction = connection.begin()
     yield connection
-    transaction.rollback()
-    connection.close()
+    try:
+        transaction.rollback()
+    finally:
+        connection.close()
 
 
 @pytest.fixture()
@@ -45,8 +47,8 @@ def db_session(db_connection: Connection) -> Generator[Session, None, None]:
 
     All writes are rolled back when the test completes — complete isolation.
     """
-    TestSession = sessionmaker(bind=db_connection, autocommit=False, autoflush=False)
-    session = TestSession()
+    session_factory = sessionmaker(bind=db_connection, autocommit=False, autoflush=False)
+    session = session_factory()
     yield session
     session.close()
 

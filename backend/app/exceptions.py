@@ -1,7 +1,7 @@
 from uuid import UUID
 
 
-class VeloIQException(Exception):
+class VeloIQException(Exception):  # noqa: N818 — base class uses Exception suffix; subclasses use Error
     """Base exception for all VeloIQ application errors."""
 
     code: str = "VELOIQ_ERROR"
